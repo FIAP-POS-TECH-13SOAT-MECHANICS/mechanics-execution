@@ -1,0 +1,4 @@
+﻿src/Mechanics.Api/appsettings.Development.json
+src/Mechanics.Api/keys
+src/*/bin
+src/*/obj

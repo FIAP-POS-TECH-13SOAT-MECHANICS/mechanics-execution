@@ -1,0 +1,81 @@
+﻿name: mechanics-:SERVICE_NAME
+
+services:
+  dotnet:
+    build: .
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Server=mssql;Database=mechanics-:SERVICE_NAME;User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
+      - EmailSenderOptions__SmtpServer=mailpit
+      - AwsCredentials__LocalstackUrl=http://localstack:4566
+    ports:
+      - "5000:8080"
+    volumes:
+      - dotnet:/home/app
+      - ./src/Mechanics.Api/keys:/app/keys:ro
+    depends_on:
+      mssql:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=2%r6dZ6Xk@g3
+      - TZ=America/Sao_Paulo
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql:/var/opt/mssql
+    healthcheck:
+      test: '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1"'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mailpit:
+    image: axllent/mailpit:v1.28
+    environment:
+      - MP_DATABASE=/data/mailpit.db
+      - MP_MAX_AGE=7d
+      - TZ=America/Sao_Paulo
+      - MP_SMTP_AUTH=postmaster@mechanics.com:xFCsMj6a4NWbZgr5
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    volumes:
+      - mailpit:/data
+    healthcheck:
+      test: 'wget --spider -q http://localhost:8025/api/v1/info'
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      - SERVICES=sqs
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/localstack-init.sh
+    healthcheck:
+      test: 'curl -f http://localhost:4566/_localstack/health'
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dotnet:
+    name: mechanics-:SERVICE_NAME-dotnet
+  mssql:
+    name: mechanics-:SERVICE_NAME-mssql
+  mailpit:
+    name: mechanics-:SERVICE_NAME-mailpit

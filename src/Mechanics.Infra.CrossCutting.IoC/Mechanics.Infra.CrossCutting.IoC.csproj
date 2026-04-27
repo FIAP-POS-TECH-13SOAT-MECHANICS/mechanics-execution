@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0"/>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.25" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mechanics.Infra.Messaging\Mechanics.Infra.Messaging.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.Observability\Mechanics.Infra.Observability.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.Integrations.EmailSender\Mechanics.Infra.Integrations.EmailSender.csproj"/>
+    <ProjectReference Include="..\Mechanics.Application\Mechanics.Application.csproj" />
+    <ProjectReference Include="..\Mechanics.Domain\Mechanics.Domain.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.Data\Mechanics.Infra.Data.csproj" />
+  </ItemGroup>
+
+</Project>

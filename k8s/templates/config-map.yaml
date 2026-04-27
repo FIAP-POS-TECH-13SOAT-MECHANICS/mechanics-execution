@@ -1,0 +1,27 @@
+﻿apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: {{ .Values.app.name }}-configs
+
+data:
+  {{- $envMap := dict "dev" "Development" "stg" "Staging" "prod" "Production" }}
+  {{- $envName := index $envMap .Values.app.env | default "Development" }}
+  ASPNETCORE_ENVIRONMENT: {{ $envName | quote }}
+  AppInfo__Name: {{ .Values.app.name | quote }}
+  AppInfo__Version: {{ .Values.app.version | quote }}
+  AppInfo__BaseUrl: {{ .Values.app.baseUrl | quote }}
+  AppInfo__RoutePrefix: {{ .Values.app.routePrefix | quote }}
+  Datadog__UseJsonLogs: {{ .Values.datadog.useJsonLogs | quote }}
+  Datadog__OtlpEndpoint: {{ .Values.datadog.otlpEndpoint | quote }}
+  Datadog__ApiKey: {{ .Values.datadog.apiKey | quote }}
+  EmailSenderOptions__SmtpServer: {{ .Values.email.smtpServer | quote }}
+  EmailSenderOptions__SmtpPort: {{ .Values.email.smtpPort | quote }}
+  EmailSenderOptions__SslRequired: {{ .Values.email.sslRequired | quote }}
+  EmailSenderOptions__SenderInformation__Name: {{ .Values.email.senderName | quote }}
+  EmailSenderOptions__SenderInformation__Address: {{ .Values.email.senderAddress | quote }}
+  LuckyPennyLicenseKey: {{ .Values.luckyPennyLicenseKey | quote }}
+  AwsCredentials__UseLocalstack: "false"
+  {{- range $key, $value := .Values.queueNames }}
+  MessagingOptions__QueueNames__{{ $key }}: "{{ $.Values.app.project }}-{{ $.Values.app.env }}-{{ $value }}"
+  {{- end }}

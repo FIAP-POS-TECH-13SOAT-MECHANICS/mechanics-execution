@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: {{ .Values.app.name }}-migrations
+  annotations:
+    "helm.sh/hook": {{ ternary "pre-install,pre-upgrade" "pre-install" .Values.app.runMigrationsOnUpdate }}
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrations
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        command: ["/app/efbundle"]
+        args: ["--connection", "$(CONNECTION_STRING)"]
+        env:
+        - name: CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: "{{ .Values.app.name }}-database"
+              key: connectionString
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"

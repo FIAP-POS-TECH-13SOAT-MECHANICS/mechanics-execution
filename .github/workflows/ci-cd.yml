@@ -1,0 +1,60 @@
+name: CI/CD Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - release
+      - develop
+  pull_request:
+    branches:
+      - main
+      - release
+      - develop
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  tests:
+    name: Run tests
+    uses: FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-infra/.github/workflows/dotnet-tests.yml@main
+
+  resolve-environment:
+    name: Resolve environment name
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Resolve Environment
+        id: resolve
+        uses: FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-infra/.github/actions/resolve-environment@main
+
+  export-artifact:
+    name: Export build artifact
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs:
+      - tests
+      - resolve-environment
+    uses: FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-infra/.github/workflows/dotnet-artifact.yml@main
+    with:
+      environment: ${{ needs.resolve-environment.outputs.environment }}
+    secrets: inherit
+
+  deploy:
+    name: Deploy on EKS
+    needs:
+      - tests
+      - resolve-environment
+    uses: FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-infra/.github/workflows/deploy-eks.yml@main
+    with:
+      environment: ${{ needs.resolve-environment.outputs.environment }}
+      service-name: ${{ vars.SERVICE_NAME }}
+
+    secrets: inherit

@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <SatelliteResourceLanguages>pt-BR</SatelliteResourceLanguages>
+
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
+      <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="8.1.4" />
+      <PackageReference Include="Swashbuckle.AspNetCore.Filters" Version="8.0.3" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mechanics.Application\Mechanics.Application.csproj" />
+    <ProjectReference Include="..\Mechanics.Domain\Mechanics.Domain.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.CrossCutting.IoC\Mechanics.Infra.CrossCutting.IoC.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.Data\Mechanics.Infra.Data.csproj" />
+    <ProjectReference Include="..\Mechanics.Infra.Security\Mechanics.Infra.Security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Condition="Exists('keys\jwt-public.pem')" Include="keys\jwt-public.pem">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>
