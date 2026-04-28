@@ -1,11 +1,11 @@
-﻿name: mechanics-:SERVICE_NAME
+﻿name: mechanics-execution
 
 services:
   dotnet:
     build: .
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__Default=Server=mssql;Database=mechanics-:SERVICE_NAME;User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
+      - ConnectionStrings__Default=Server=mssql;Database=mechanics-execution;User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
       - EmailSenderOptions__SmtpServer=mailpit
       - AwsCredentials__LocalstackUrl=http://localstack:4566
     ports:
@@ -74,8 +74,8 @@ services:
 
 volumes:
   dotnet:
-    name: mechanics-:SERVICE_NAME-dotnet
+    name: mechanics-execution-dotnet
   mssql:
-    name: mechanics-:SERVICE_NAME-mssql
+    name: mechanics-execution-mssql
   mailpit:
-    name: mechanics-:SERVICE_NAME-mailpit
+    name: mechanics-execution-mailpit

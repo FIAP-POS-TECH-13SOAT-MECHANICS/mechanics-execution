@@ -1,4 +1,5 @@
 using AutoMapper;
+using Mechanics.Application.Identity.Services;
 using Mechanics.Application.Notification.Services;
 using Mechanics.Application.Observability;
 using Mechanics.Application.Utils;
@@ -6,12 +7,12 @@ using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Utils.PagedList;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base.Exceptions;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data;
+using Mechanics.Infra.Security.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ public class WorkOrderAppService(
     IMapper mapper,
     IEmailService emailService,
     ILogger<WorkOrderAppService> logger,
-    BudgetAppService budgetService)
+    IUserService userService)
     : IAppService
 {
     /// <summary>
@@ -130,14 +131,10 @@ public class WorkOrderAppService(
         var wo = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == workOrderId, cancellationToken);
         EntityNotFoundException.ThrowIfNull(wo, workOrderId);
 
-        var assignedUser = await db.Users
-            .AsNoTracking()
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == assignedToUserId, cancellationToken);
-
+        var assignedUser = await userService.GetUserById(assignedToUserId, cancellationToken);
         EntityNotFoundException.ThrowIfNull(assignedUser, assignedToUserId);
 
-        if (assignedUser.Role?.Name != RoleNames.Mechanic)
+        if (assignedUser.Role.Name != RoleNames.Mechanic)
             throw new BusinessException("Assigned user must be a mechanic.");
 
         wo.AssignedToUserId = assignedToUserId;
@@ -230,7 +227,8 @@ public class WorkOrderAppService(
         var woExists = await db.WorkOrders.AnyAsync(w => w.Id == workOrderId, cancellationToken);
         EntityNotFoundException.ThrowIfNotFound<WorkOrder>(woExists, workOrderId);
 
-        await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
+        // TODO enviar ordem e todos os produtos para Billing
+        // await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
     }
 
     /// <summary>
@@ -253,12 +251,13 @@ public class WorkOrderAppService(
 
         if (newStatus == WorkOrderStatus.InProgress)
         {
-            var approved = wo.ApprovedAt != null ||
+            // TODO consultar ordem para confirmar que orçamento está aprovado
+            /*var approved = wo.ApprovedAt != null ||
                            await db.Budgets.AnyAsync(b => b.WorkOrderId == workOrderId && b.Status == BudgetStatus.Approved,
                                cancellationToken);
 
             if (!approved)
-                throw new BusinessException("Order must be approved before starting.");
+                throw new BusinessException("Order must be approved before starting.");*/
         }
 
         var timeInPreviousStatus = DateTime.Now - wo.LastUpdate;

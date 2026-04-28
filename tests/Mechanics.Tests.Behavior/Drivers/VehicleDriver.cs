@@ -1,4 +1,4 @@
-﻿using Mechanics.Domain.Auth;
+﻿using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Behavior.Hooks;
 
 namespace Mechanics.Tests.Behavior.Drivers;

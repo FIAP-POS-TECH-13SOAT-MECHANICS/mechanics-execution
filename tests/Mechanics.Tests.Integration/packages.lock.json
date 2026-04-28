@@ -97,15 +97,23 @@
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.3.29",
-        "contentHash": "y07n9BHBVRDe3fDAjitnOBPwDwJ5NZ4oOh6ZvOizYWEsJnYcs34FQtTJ70Gt17qTCH86ma5kJdyMZ2lixm/dqg=="
+        "resolved": "4.0.4",
+        "contentHash": "RjBk1WDrOCpsSRGn6j2lYhgiyYnXEhMctwJevNnIPIIGpgj49ifbU6FmG1Dk+1M/VSuqeTQ1WVsssziTty7b2w=="
+      },
+      "AWSSDK.Lambda": {
+        "type": "Transitive",
+        "resolved": "4.0.15.1",
+        "contentHash": "ZVkkiHgaRe8ES4G90GuBLb5CsIt4jpYLXrBc0sTP9NjxCKxRSnRx2Vg3/txmanFsUTV6t0tGZClA2M+41rBRSA==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.4, 5.0.0)"
+        }
       },
       "AWSSDK.SQS": {
         "type": "Transitive",
-        "resolved": "4.0.2.25",
-        "contentHash": "oYYPNmsFZg+rTKAyX/I1gYn3NTHXsWH1+Tp1H8YN0HalMPwZIDbkm8FTGESJgHjmfq3rdEkXBln96J97JFdB7g==",
+        "resolved": "4.0.2.27",
+        "contentHash": "wMGXB7O/1umSSqD1KWcpiei+FRH7XJNWxaNDewF47zLY1JrTL96bUCqTdwGkDQrIVKQg9seN8ukxT2/mappBAA==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.3.29, 5.0.0)"
+          "AWSSDK.Core": "[4.0.4, 5.0.0)"
         }
       },
       "Azure.Core": {
@@ -1441,12 +1449,20 @@
           "FluentValidation.DependencyInjectionExtensions": "[12.0.0, )",
           "Mechanics.Application": "[1.0.0, )",
           "Mechanics.Domain": "[1.0.0, )",
+          "Mechanics.Infra.CrossServiceClient": "[1.0.0, )",
           "Mechanics.Infra.Data": "[1.0.0, )",
           "Mechanics.Infra.Integrations.EmailSender": "[1.0.0, )",
           "Mechanics.Infra.Messaging": "[1.0.0, )",
           "Mechanics.Infra.Observability": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.0, )",
           "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.25, )"
+        }
+      },
+      "mechanics.infra.crossserviceclient": {
+        "type": "Project",
+        "dependencies": {
+          "AWSSDK.Lambda": "[4.0.15.1, )",
+          "AWSSDK.SQS": "[4.0.2.27, )"
         }
       },
       "mechanics.infra.data": {

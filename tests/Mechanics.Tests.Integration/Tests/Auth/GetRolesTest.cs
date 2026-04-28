@@ -1,5 +1,4 @@
-﻿using Mechanics.Application.Auth.Responses;
-using Mechanics.Domain.Auth;
+﻿using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Integration.Helpers;
 using System.Net;
 using System.Net.Http.Json;

@@ -1,13 +1,13 @@
 using AutoMapper;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Services;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base.Exceptions;
 using Mechanics.Domain.Customers;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.Vehicles;
 using Mechanics.Domain.WorkOrders;
+using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Unit.Helpers;
 using Mechanics.Tests.Unit.Mocks;
 using Microsoft.EntityFrameworkCore;

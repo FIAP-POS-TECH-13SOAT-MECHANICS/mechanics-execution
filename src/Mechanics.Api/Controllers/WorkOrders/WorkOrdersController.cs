@@ -1,7 +1,6 @@
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
 using Mechanics.Application.WorkOrders.Services;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Security;
 using Mechanics.Infra.Security.Models;

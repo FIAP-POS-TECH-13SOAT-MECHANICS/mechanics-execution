@@ -1,4 +1,4 @@
-﻿namespace Mechanics.Domain.Auth;
+﻿namespace Mechanics.Infra.Security.Models;
 
 public static class RoleNames
 {

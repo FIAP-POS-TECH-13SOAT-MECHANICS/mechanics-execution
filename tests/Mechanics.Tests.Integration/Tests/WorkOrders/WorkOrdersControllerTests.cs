@@ -1,10 +1,10 @@
 using Mechanics.Application.WorkOrders.Requests;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Customers;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.Vehicles;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data;
+using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Integration.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

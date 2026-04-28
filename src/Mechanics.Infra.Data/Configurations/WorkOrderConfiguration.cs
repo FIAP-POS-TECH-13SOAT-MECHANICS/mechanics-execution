@@ -27,7 +27,6 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
         builder.Property(e => e.ReportedProblem).HasMaxLength(1000);
         builder.Property(e => e.Observations).HasMaxLength(2000);
 
-        builder.HasOne(e => e.AssignedToUser).WithMany();
         builder.HasIndex(e => e.AssignedToUserId);
     }
 }

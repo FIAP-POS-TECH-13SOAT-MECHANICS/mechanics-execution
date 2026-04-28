@@ -1,8 +1,7 @@
 using Mechanics.Application.Notification.Services;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Integrations.EmailSender;
-using Mechanics.Tests.Unit.Mocks;
+using Mechanics.Infra.Security.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

@@ -2,8 +2,8 @@
 using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Vehicles.Requests;
 using Mechanics.Application.Vehicles.Responses;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Vehicles;
+using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Integration.Helpers;
 using System.Net;
 using System.Net.Http.Json;

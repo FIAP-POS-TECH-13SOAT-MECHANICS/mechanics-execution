@@ -1,5 +1,4 @@
-﻿using Mechanics.Domain.Auth;
-using Mechanics.Infra.Security.Models;
+﻿using Mechanics.Infra.Security.Models;
 using Mechanics.Infra.Security.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;

@@ -1,12 +1,12 @@
 app:
-  name: SERVICE
+  name: execution
   project: fiap-mechanics
   version: 1.0.0
   env: dev
   port: 5000
   runMigrationsOnUpdate: true
   baseUrl: http://localhost:5000
-  routePrefix: SERVICE
+  routePrefix: execution
 
 service:
   minReplicas: 2

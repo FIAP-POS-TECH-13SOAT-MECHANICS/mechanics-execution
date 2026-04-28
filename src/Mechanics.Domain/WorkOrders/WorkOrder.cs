@@ -1,4 +1,3 @@
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base;
 using Mechanics.Domain.Base.Validation;
 using Mechanics.Domain.Customers;
@@ -75,11 +74,6 @@ public class WorkOrder : AbstractEntity, IValidatable
     ///     Usuário a quem a OS foi atribuída (mecânico).
     /// </summary>
     public Guid? AssignedToUserId { get; set; }
-
-    /// <summary>
-    ///     Navegação para o usuário atribuído.
-    /// </summary>
-    public User? AssignedToUser { get; set; }
 
     /// <summary>
     ///     Gera uma nova chave de acesso única por cliente.

@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Mechanics.Application.Auth;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Mechanics.Tests.Unit.Helpers;
