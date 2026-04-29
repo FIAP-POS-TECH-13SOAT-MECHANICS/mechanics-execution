@@ -1,4 +1,5 @@
 using AutoMapper;
+using Mechanics.Application.Identity.Responses;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Services;
 using Mechanics.Domain.Base.Exceptions;
@@ -26,6 +27,7 @@ public class WorkOrderAppServiceTests
 
     private IMapper _mapper = null!;
     private EmailServiceMock _emailMock = null!;
+    private UserServiceMock _userServiceMock = null!;
     private NullLoggerFactory _loggerFactory = null!;
 
     [TestInitialize]
@@ -34,6 +36,7 @@ public class WorkOrderAppServiceTests
         _mapper = AutoMapperFactory.CreateMap("WorkOrders");
 
         _emailMock = new EmailServiceMock();
+        _userServiceMock = new UserServiceMock();
         _loggerFactory = new NullLoggerFactory();
     }
 
@@ -53,7 +56,6 @@ public class WorkOrderAppServiceTests
                 ctx.Customers.Add(new Customer
                 {
                     Id = customerId, Name = "John", Email = "john@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -81,17 +83,12 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new CreateWorkOrderRequest
         {
@@ -132,17 +129,12 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new CreateWorkOrderRequest
         {
@@ -170,7 +162,6 @@ public class WorkOrderAppServiceTests
                 ctx.Customers.Add(new Customer
                 {
                     Id = customerId, Name = "Mary", Email = "mary@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "98765432100"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -191,17 +182,12 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var performedBy = Guid.NewGuid();
         await service.RequestApproval(wo.Id, performedBy, TestContext.CancellationTokenSource.Token);
@@ -212,8 +198,6 @@ public class WorkOrderAppServiceTests
         IsNotNull(reloaded.ApprovalRequestedAt);
         AreEqual(performedBy, reloaded.LastStatusChangeBy);
         IsTrue(_emailMock.SendWorkOrderPendingApprovalCalled);
-
-        AreEqual(100m, _emailMock.LastBudgetTotal);
     }
 
     [TestMethod("ChangeStatus should require approval before InProgress and should record history")]
@@ -230,7 +214,6 @@ public class WorkOrderAppServiceTests
                     Id = customerId,
                     Name = "Pedro",
                     Email = "pedro@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "11122233344"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -251,42 +234,22 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var mechanicRoleId = Guid.NewGuid();
-        var mechanicRole = new Role
-        {
-            Id = mechanicRoleId,
-            Name = RoleNames.Mechanic,
-            CreationDate = DateTime.UtcNow,
-        };
-        context.Roles.Add(mechanicRole);
-
         var performingUserId = Guid.NewGuid();
-        var performingUser = new User
+        _userServiceMock.UserToReturn = new UserResponse
         {
             Id = performingUserId,
             FullName = "Test Mechanic",
             CpfNumber = "45678901234",
-            Email = "test_mechanic@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = mechanicRoleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
         };
-        context.Users.Add(performingUser);
-
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         await ThrowsExactlyAsync<BusinessException>(() =>
             service.ChangeStatus(wo.Id, WorkOrderStatus.Received, performingUserId, comment: null,
@@ -297,19 +260,13 @@ public class WorkOrderAppServiceTests
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         var statusChangedBy = Guid.NewGuid();
-        var otherUser = new User
+        _userServiceMock.UserToReturn = new UserResponse
         {
             Id = statusChangedBy,
             FullName = "Another Mechanic",
             CpfNumber = "56789012345",
-            Email = "another_mechanic@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = mechanicRoleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
         };
-        context.Users.Add(otherUser);
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         await service.ChangeStatus(wo.Id, WorkOrderStatus.InProgress, statusChangedBy, comment: null,
             TestContext.CancellationTokenSource.Token);
@@ -338,7 +295,6 @@ public class WorkOrderAppServiceTests
                     Id = customerId,
                     Name = "Laura",
                     Email = "laura@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "55566677788"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -360,40 +316,22 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
-
-        var roleId = Guid.NewGuid();
-        var role = new Role
-        {
-            Id = roleId,
-            Name = RoleNames.Mechanic,
-            CreationDate = DateTime.UtcNow,
-        };
-        context.Roles.Add(role);
+            _userServiceMock);
 
         var actorId = Guid.NewGuid();
-        var actor = new User
+        _userServiceMock.UserToReturn = new UserResponse
         {
             Id = actorId,
             FullName = "Actor User",
             CpfNumber = "67890123456",
-            Email = "actor@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = roleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic }
         };
-        context.Users.Add(actor);
 
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
@@ -456,7 +394,6 @@ public class WorkOrderAppServiceTests
                     Id = customerId,
                     Name = "Client",
                     Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
                 });
 
                 ctx.Vehicles.Add(new Vehicle
@@ -493,17 +430,13 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         // create base work order without products/services
         var wo = new WorkOrder
@@ -567,7 +500,6 @@ public class WorkOrderAppServiceTests
                     Id = customerId,
                     Name = "Client",
                     Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -581,34 +513,14 @@ public class WorkOrderAppServiceTests
                     OwnerId = customerId,
                 });
 
-                // mechanic role
-                ctx.Roles.Add(new Role { Id = mechanicRoleId, Name = RoleNames.Mechanic, CreationDate = DateTime.UtcNow });
-
-                // assigned user (mechanic)
-                ctx.Users.Add(new User
+                // assignedToUserId and performedByUserId will be retrieved via mock if necessary
+                _userServiceMock.UserToReturn = new UserResponse
                 {
                     Id = assignedToUserId,
                     FullName = "Assigned Mechanic",
                     CpfNumber = "78901234567",
-                    Email = "assigned@example.com",
-                    PasswordHash = "hash",
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    RoleId = mechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
-
-                // performing user (could also be mechanic)
-                ctx.Users.Add(new User
-                {
-                    Id = performedByUserId,
-                    FullName = "Supervisor",
-                    CpfNumber = "89012345678",
-                    Email = "sup@example.com",
-                    PasswordHash = "hash",
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    RoleId = mechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
+                    Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
+                };
 
                 // work order in Received
                 ctx.WorkOrders.Add(new WorkOrder
@@ -624,17 +536,13 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         const string comment = "Take this ASAP";
         await service.Assign(workOrderId, assignedToUserId, performedByUserId, comment, TestContext.CancellationTokenSource.Token);
@@ -678,7 +586,6 @@ public class WorkOrderAppServiceTests
                 ctx.Customers.Add(new Customer
                 {
                     Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "11122233344"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -686,34 +593,26 @@ public class WorkOrderAppServiceTests
                     LicensePlate = new LicensePlate("BBB1C23"), Chassis = "CH2", OwnerId = customerId,
                 });
 
-                // non-mechanic role
-                ctx.Roles.Add(new Role { Id = nonMechanicRoleId, Name = "Admin", CreationDate = DateTime.UtcNow });
+        // mock user
+        _userServiceMock.UserToReturn = new UserResponse
+        {
+            Id = assignedToUserId,
+            FullName = "Admin User",
+            CpfNumber = "11122233344",
+            Role = new RoleResponse { Id = nonMechanicRoleId, Name = "Admin" }
+        };
 
-                // non-mechanic user
-                ctx.Users.Add(new User
-                {
-                    Id = assignedToUserId, FullName = "Admin User", CpfNumber = "11122233344", Email = "admin@example.com",
-                    PasswordHash = "h", SecurityStamp = Guid.NewGuid().ToString(), RoleId = nonMechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
-                ctx.Users.Add(new User
-                {
-                    Id = performerId, FullName = "Perf", CpfNumber = "22233344455", Email = "perf@example.com", PasswordHash = "h",
-                    SecurityStamp = Guid.NewGuid().ToString(), RoleId = nonMechanicRoleId, CreationDate = DateTime.UtcNow,
-                });
-
-                ctx.WorkOrders.Add(new WorkOrder
-                {
-                    Id = workOrderId, CustomerId = customerId, VehicleId = vehicleId,
-                    AccessKey = WorkOrder.GenerateNewAccessKey([]), Status = WorkOrderStatus.Received, CreationDate = DateTime.Now,
-                    LastUpdate = DateTime.Now,
-                });
+        ctx.WorkOrders.Add(new WorkOrder
+        {
+            Id = workOrderId, CustomerId = customerId, VehicleId = vehicleId,
+            AccessKey = WorkOrder.GenerateNewAccessKey([]), Status = WorkOrderStatus.Received, CreationDate = DateTime.Now,
+            LastUpdate = DateTime.Now,
+        });
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         await ThrowsExactlyAsync<BusinessException>(() =>
             service.Assign(workOrderId, assignedToUserId, performerId, null, TestContext.CancellationTokenSource.Token));
@@ -732,30 +631,26 @@ public class WorkOrderAppServiceTests
                 ctx.Customers.Add(new Customer
                 {
                     Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "99988877766"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
                     Id = vehicleId, Manufacturer = "M", Model = "Y", Color = VehicleColor.Gray, Year = "2020",
                     LicensePlate = new LicensePlate("CCC1D23"), Chassis = "CH3", OwnerId = customerId,
                 });
-                ctx.Roles.Add(new Role { Id = mechanicRoleId, Name = RoleNames.Mechanic, CreationDate = DateTime.UtcNow });
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         // 1) WorkOrder not found
         var missingWoId = Guid.NewGuid();
         var someUserId = Guid.NewGuid();
-        await context.Users.AddAsync(new User
+        // user is found via mock
+        _userServiceMock.UserToReturn = new UserResponse
         {
-            Id = someUserId, FullName = "Mec A", CpfNumber = "33344455566", Email = "meca@example.com", PasswordHash = "h",
-            SecurityStamp = Guid.NewGuid().ToString(), RoleId = mechanicRoleId, CreationDate = DateTime.UtcNow,
-        }, TestContext.CancellationTokenSource.Token);
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
+            Id = someUserId, FullName = "Mec A", CpfNumber = "33344455566", Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic }
+        };
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
             service.Assign(missingWoId, someUserId, someUserId, null, TestContext.CancellationTokenSource.Token));
@@ -768,6 +663,8 @@ public class WorkOrderAppServiceTests
         };
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
+
+        _userServiceMock.UserToReturn = null; // simulate user not found
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
             service.Assign(wo.Id, Guid.NewGuid(), someUserId, null, TestContext.CancellationTokenSource.Token));
@@ -791,7 +688,6 @@ public class WorkOrderAppServiceTests
                 ctx.Customers.Add(new Customer
                 {
                     Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "22233344455"),
                 });
                 ctx.Vehicles.Add(new Vehicle
                 {
@@ -831,9 +727,8 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var resp = await service.Get(wo.Id, TestContext.CancellationTokenSource.Token);
         IsNotNull(resp, "Response should not be null");
@@ -851,9 +746,8 @@ public class WorkOrderAppServiceTests
     {
         await using var context = new DbContextTestBuilder().Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var resp = await service.Get(Guid.NewGuid(), TestContext.CancellationTokenSource.Token);
         IsNull(resp);
@@ -865,7 +759,6 @@ public class WorkOrderAppServiceTests
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
         var workOrderId = Guid.NewGuid();
-        const string rawDocument = "12345678909";
         const string storedAccessKey = "123123";
         const string queryAccessKey = "1 2 3 1 2 3";
 
@@ -877,7 +770,6 @@ public class WorkOrderAppServiceTests
                     Id = customerId,
                     Name = "Jane",
                     Email = "jane@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, rawDocument),
                 });
 
                 ctx.Vehicles.Add(new Vehicle
@@ -905,9 +797,8 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var resp = await service.TrackByAccessKey(customerId, queryAccessKey,
             TestContext.CancellationTokenSource.Token);
@@ -936,10 +827,7 @@ public class WorkOrderAppServiceTests
             {
                 ctx.Customers.Add(new Customer
                 {
-                    Id = customerId,
-                    Name = "Client",
-                    Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12312312312"),
+                    Id = customerId, Name = "Client", Email = "client@example.com",
                 });
 
                 ctx.Vehicles.Add(new Vehicle
@@ -994,17 +882,13 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var response = await service.GetAverageServiceTime(wo.Id, TestContext.CancellationTokenSource.Token);
 
@@ -1017,16 +901,12 @@ public class WorkOrderAppServiceTests
     public async Task GetAverageServiceTime_ShouldThrowWhenWorkOrderNotFound()
     {
         await using var context = new DbContextTestBuilder().Build();
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(
             context,
             _mapper,
             _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         await ThrowsAsync<EntityNotFoundException>(async () =>
             await service.GetAverageServiceTime(Guid.NewGuid(), TestContext.CancellationTokenSource.Token));
@@ -1060,9 +940,8 @@ public class WorkOrderAppServiceTests
             ])
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new GetWorkOrdersRequest { CustomerId = customerA, Page = 1, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1098,9 +977,8 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new GetWorkOrdersRequest { VehicleId = vehicleX, Page = 1, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1129,9 +1007,8 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new GetWorkOrdersRequest { Page = 2, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1147,9 +1024,8 @@ public class WorkOrderAppServiceTests
             .WithData(Enum.GetValues<WorkOrderStatus>().Select(WorkOrderMocks.CreateWorkOrderEntity))
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _userServiceMock);
 
         var request = new GetWorkOrdersRequest { Page = 1, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);

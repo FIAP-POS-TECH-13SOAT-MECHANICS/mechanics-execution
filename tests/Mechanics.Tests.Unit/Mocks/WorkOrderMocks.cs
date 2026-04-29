@@ -1,6 +1,5 @@
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
-using Mechanics.Infra.Security.Models;
 
 namespace Mechanics.Tests.Unit.Mocks;
 

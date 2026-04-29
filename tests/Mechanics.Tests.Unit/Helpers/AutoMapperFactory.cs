@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Mechanics.Application.WorkOrders;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Mechanics.Tests.Unit.Helpers;
@@ -9,7 +10,7 @@ public static class AutoMapperFactory
     {
         var config = new MapperConfiguration(cfg =>
         {
-            var profiles = typeof(AuthMapperProfile).Assembly.GetTypes()
+            var profiles = typeof(WorkOrderMapperProfile).Assembly.GetTypes()
                 .Where(type => (type.Namespace?.Contains(domain) ?? false) && type.BaseType == typeof(Profile));
 
             foreach (var profile in profiles)

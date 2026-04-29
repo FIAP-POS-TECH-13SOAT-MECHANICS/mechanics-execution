@@ -1,7 +1,6 @@
 using Mechanics.Domain.Customers;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Integrations.EmailSender;
-using System.Text;
 
 namespace Mechanics.Application.Notification.Templates;
 

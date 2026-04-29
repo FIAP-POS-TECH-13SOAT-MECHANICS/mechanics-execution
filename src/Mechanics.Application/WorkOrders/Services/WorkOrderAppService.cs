@@ -252,9 +252,7 @@ public class WorkOrderAppService(
         if (newStatus == WorkOrderStatus.InProgress)
         {
             // TODO consultar ordem para confirmar que orçamento está aprovado
-            /*var approved = wo.ApprovedAt != null ||
-                           await db.Budgets.AnyAsync(b => b.WorkOrderId == workOrderId && b.Status == BudgetStatus.Approved,
-                               cancellationToken);
+            /*var approved = wo.ApprovedAt != null;
 
             if (!approved)
                 throw new BusinessException("Order must be approved before starting.");*/

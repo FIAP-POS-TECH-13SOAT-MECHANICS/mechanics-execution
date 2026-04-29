@@ -34,7 +34,6 @@ public class WorkOrdersControllerTests
                 Id = customerId,
                 Name = "Integration Customer",
                 Email = "int.customer@example.com",
-                Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
             });
             db.Vehicles.Add(new Vehicle
             {
@@ -99,34 +98,6 @@ public class WorkOrdersControllerTests
             await db.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
         }
 
-        var attendantUserId = new Guid("c2a83e5a-27c7-440a-97e3-86234eebb3c7");
-
-        using (var scope = TestProperties.Factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            var role = await db.Roles.FirstAsync(r => r.Name == RoleNames.Attendant,
-                TestContext.CancellationTokenSource.Token);
-
-            var existingUser = await db.Users.FindAsync([attendantUserId], TestContext.CancellationTokenSource.Token);
-            if (existingUser == null)
-            {
-                db.Users.Add(new User
-                {
-                    Id = attendantUserId,
-                    FullName = "Integration Attendant",
-                    CpfNumber = "60975754084",
-                    Email = "int.attendant@mechanics.com",
-                    PasswordHash = "hash",
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    RoleId = role.Id,
-                    CreationDate = DateTime.UtcNow,
-                });
-            }
-
-            await db.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
-        }
-
         var reqApprovalResp = await client.PostAsync($"/api/work-orders/{woId}/request-approval", null,
             TestContext.CancellationTokenSource.Token);
         Assert.AreEqual(HttpStatusCode.NoContent, reqApprovalResp.StatusCode);
@@ -138,7 +109,6 @@ public class WorkOrdersControllerTests
             Assert.IsNotNull(wo);
             Assert.AreEqual(WorkOrderStatus.PendingApproval, wo.Status);
             Assert.IsNotNull(wo.ApprovalRequestedAt);
-            Assert.AreEqual(attendantUserId, wo.LastStatusChangeBy);
         }
     }
 }

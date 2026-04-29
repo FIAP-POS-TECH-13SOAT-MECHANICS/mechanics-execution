@@ -85,6 +85,11 @@
           "Testcontainers": "4.11.0"
         }
       },
+      "Amazon.Lambda.APIGatewayEvents": {
+        "type": "Transitive",
+        "resolved": "2.7.3",
+        "contentHash": "CXmiXdwuSXSJA0YH+7OJqG2uGDnhDcKkN2ei2u2/kdRFK+RH8JC5GbdechdJoldpogxHdHy12TuAfqqKSC67Nw=="
+      },
       "AutoMapper": {
         "type": "Transitive",
         "resolved": "15.1.3",
@@ -1462,7 +1467,8 @@
         "type": "Project",
         "dependencies": {
           "AWSSDK.Lambda": "[4.0.15.1, )",
-          "AWSSDK.SQS": "[4.0.2.27, )"
+          "AWSSDK.SQS": "[4.0.2.27, )",
+          "Amazon.Lambda.APIGatewayEvents": "[2.7.3, )"
         }
       },
       "mechanics.infra.data": {

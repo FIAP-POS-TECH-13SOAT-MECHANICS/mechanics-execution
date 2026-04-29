@@ -14,10 +14,14 @@ public static class HttpExtensions
     {
         var options = configuration.GetSection("AwsCredentials").Get<AwsCredentialsOptions>()!;
 
-        services.AddSingleton(new AmazonLambdaClient(
+        services.AddSingleton<IAmazonLambda>(new AmazonLambdaClient(
             new SessionAWSCredentials(options.AccessKey, options.SecretAccessKey, options.SessionToken),
             new AmazonLambdaConfig { RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region) }));
-        services.AddSingleton<ServiceTokenHandler>();
+
+        services.AddTransient<ServiceTokenHandler>();
+        services.AddSingleton<AuthTokenService>();
+
+        services.Configure<CrossServiceClients>(configuration.GetSection(nameof(CrossServiceClients)));
 
         return new ServiceClientBuilder(services);
     }
