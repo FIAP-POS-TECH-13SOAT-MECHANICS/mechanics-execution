@@ -14,9 +14,21 @@ public static class HttpExtensions
     {
         var options = configuration.GetSection("AwsCredentials").Get<AwsCredentialsOptions>()!;
 
-        services.AddSingleton<IAmazonLambda>(new AmazonLambdaClient(
-            new SessionAWSCredentials(options.AccessKey, options.SecretAccessKey, options.SessionToken),
-            new AmazonLambdaConfig { RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region) }));
+        services.AddSingleton<IAmazonLambda>(_ =>
+        {
+            if (options.UseLocalstack)
+                return new AmazonLambdaClient(
+                    new BasicAWSCredentials("local", "empty-key"),
+                    new AmazonLambdaConfig
+                    {
+                        RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region),
+                        ServiceURL = options.LocalstackUrl,
+                    });
+
+            return new AmazonLambdaClient(
+                new SessionAWSCredentials(options.AccessKey, options.SecretAccessKey, options.SessionToken),
+                new AmazonLambdaConfig { RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region) });
+        });
 
         services.AddTransient<ServiceTokenHandler>();
         services.AddSingleton<AuthTokenService>();

@@ -1,8 +1,10 @@
 ﻿using Mechanics.Infra.Security.Models;
 using Mechanics.Infra.Security.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -18,15 +20,11 @@ public static class AuthExtensions
     ///     Configura autenticação por JWT.
     /// </summary>
     /// <remarks>A chave do token sempre é validada em modo de Release.</remarks>
-    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, bool validateInDebugMode)
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IWebHostEnvironment environment)
     {
-#if DEBUG
-        return validateInDebugMode
+        return !environment.IsDevelopment()
             ? services.AddValidatedAuthentication()
             : services.AddAuthenticationWithoutValidation();
-#else
-        return services.AddValidatedAuthentication();
-#endif
     }
 
     /// <summary>

@@ -1,13 +1,14 @@
-﻿name: mechanics-execution
+﻿name: mechanics-${SERVICE_NAME?}
 
 services:
   dotnet:
     build: .
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__Default=Server=mssql;Database=mechanics-execution;User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
+      - ConnectionStrings__Default=Server=mssql;Database=mechanics-${SERVICE_NAME};User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
       - EmailSenderOptions__SmtpServer=mailpit
       - AwsCredentials__LocalstackUrl=http://localstack:4566
+      - CrossServiceClients__IdentityBaseUrl=${IDENTITY?}
     ports:
       - "5000:8080"
     volumes:
@@ -61,11 +62,12 @@ services:
   localstack:
     image: localstack/localstack:3
     environment:
-      - SERVICES=sqs
+      - SERVICES=sqs,lambda
     ports:
       - "4566:4566"
     volumes:
-      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/localstack-init.sh
+      - ./scripts/localstack:/etc/localstack/init/ready.d:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: 'curl -f http://localhost:4566/_localstack/health'
       interval: 2s
@@ -74,8 +76,8 @@ services:
 
 volumes:
   dotnet:
-    name: mechanics-execution-dotnet
+    name: mechanics-${SERVICE_NAME}-dotnet
   mssql:
-    name: mechanics-execution-mssql
+    name: mechanics-${SERVICE_NAME}-mssql
   mailpit:
-    name: mechanics-execution-mailpit
+    name: mechanics-${SERVICE_NAME}-mailpit
