@@ -4,12 +4,15 @@ using Mechanics.Infra.Security.Models;
 
 namespace Mechanics.Tests.Unit.Mocks;
 
-public class UserServiceMock : IUserService
+public class IdentityApiServiceMock : IIdentityApiService
 {
     public UserResponse? UserToReturn { get; set; }
 
     public Task<UserResponse?> GetUserById(Guid id, CancellationToken cancellationToken)
     {
+        if (UserToReturn is null)
+            return Task.FromResult<UserResponse?>(null);
+
         if (UserToReturn != null && UserToReturn.Id == id)
             return Task.FromResult<UserResponse?>(UserToReturn);
 

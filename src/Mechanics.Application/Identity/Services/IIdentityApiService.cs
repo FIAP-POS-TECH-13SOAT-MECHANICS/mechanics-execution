@@ -2,7 +2,7 @@
 
 namespace Mechanics.Application.Identity.Services;
 
-public interface IUserService
+public interface IIdentityApiService
 {
     Task<UserResponse?> GetUserById(Guid id, CancellationToken cancellationToken);
 }

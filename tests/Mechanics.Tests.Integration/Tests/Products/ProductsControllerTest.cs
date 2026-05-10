@@ -33,7 +33,7 @@ public class ProductsControllerTest
         };
 
         // Act
-        var httpResponse = await client.PostAsJsonAsync("api/products", request, TestContext.CancellationTokenSource.Token);
+        var httpResponse = await client.PostAsJsonAsync("execution/products", request, TestContext.CancellationTokenSource.Token);
 
         // Assert
         Assert.AreEqual(HttpStatusCode.Created, httpResponse.StatusCode);
@@ -60,7 +60,7 @@ public class ProductsControllerTest
         };
 
         // Act
-        var httpResponse = await client.PostAsJsonAsync("api/products", invalidRequest, TestContext.CancellationTokenSource.Token);
+        var httpResponse = await client.PostAsJsonAsync("execution/products", invalidRequest, TestContext.CancellationTokenSource.Token);
 
         // Assert
         Assert.AreEqual(HttpStatusCode.BadRequest, httpResponse.StatusCode);

@@ -17,10 +17,6 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
         builder.Property(entity => entity.AccessKey).HasMaxLength(8).IsFixedLength();
         builder.HasIndex(entity => new { entity.CustomerId, entity.AccessKey }).IsUnique();
 
-        builder.HasOne(entity => entity.Customer).WithMany().OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(entity => entity.Vehicle).WithMany().OnDelete(DeleteBehavior.NoAction);
-
         builder.HasMany(entity => entity.ServiceCatalog)
             .WithMany(entity => entity.WorkOrders);
 

@@ -40,8 +40,7 @@ public class Program
             .AddAppServices(builder.Configuration)
             .AddRequestValidators()
             .AddMessaging(builder.Configuration)
-            .AddCrossServiceClients(builder.Configuration)
-            .AddEmailSender(builder.Configuration);
+            .AddCrossServiceClients(builder.Configuration);
 
         builder.Services.AddHealthChecks()
             .AddDbHealthCheck();

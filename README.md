@@ -6,7 +6,6 @@ Gestão da execução das ordens de serviço.
 
 - SDK: .NET 8.0
 - Banco de dados: MSSQL 2025
-- Serviço de E-mail: MailPit
 - Chave pública para JWT: AWS Secrets Manager
 
 ## Serviços consumidos
@@ -42,7 +41,7 @@ Ao executar o projeto em ambientes de desenvolvimento, o token de autenticação
 Primeiro inicie o banco de dados, serviço de e-mail e emulador da AWS:
 
 ```bash
-docker compose up mssql mailpit localstack -d
+docker compose up mssql localstack -d
 ```
 
 Aguarde até o serviço `mssql` estar iniciando. O processo leva cerca de 40 segundos.

@@ -15,11 +15,6 @@ data:
   Datadog__UseJsonLogs: {{ .Values.datadog.useJsonLogs | quote }}
   Datadog__OtlpEndpoint: {{ .Values.datadog.otlpEndpoint | quote }}
   Datadog__ApiKey: {{ .Values.datadog.apiKey | quote }}
-  EmailSenderOptions__SmtpServer: {{ .Values.email.smtpServer | quote }}
-  EmailSenderOptions__SmtpPort: {{ .Values.email.smtpPort | quote }}
-  EmailSenderOptions__SslRequired: {{ .Values.email.sslRequired | quote }}
-  EmailSenderOptions__SenderInformation__Name: {{ .Values.email.senderName | quote }}
-  EmailSenderOptions__SenderInformation__Address: {{ .Values.email.senderAddress | quote }}
   LuckyPennyLicenseKey: {{ .Values.luckyPennyLicenseKey | quote }}
   CrossServiceClients__AuthTokenFunctionName: "{{ $.Values.app.project }}-{{ $.Values.app.env }}-auth-token"
   CrossServiceClients__BillingBaseUrl: "http://billing.billing:5000"

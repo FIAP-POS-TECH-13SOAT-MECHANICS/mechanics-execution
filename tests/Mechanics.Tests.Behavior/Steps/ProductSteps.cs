@@ -6,9 +6,9 @@ using System.Text.Json;
 namespace Mechanics.Tests.Behavior.Steps;
 
 [Binding]
-public class VehicleSteps(ScenarioContext ctx)
+public class ProductSteps(ScenarioContext ctx)
 {
-    private readonly VehicleDriver _driver = new();
+    private readonly ProductDriver _driver = new();
 
     [Given("um atendente autenticado")]
     public static void GivenUmAtendenteAutenticado()
@@ -16,8 +16,8 @@ public class VehicleSteps(ScenarioContext ctx)
         // autenticação gerenciada pela factory — step serve de documentação
     }
 
-    [When("ele solicita a listagem de veículos")]
-    public async Task WhenEleSolicitaAListagemDeVeiculos()
+    [When("ele solicita a listagem de produtos")]
+    public async Task WhenEleSolicitaAListagemDeProdutos()
     {
         ctx["response"] = await _driver.ListAsync();
     }

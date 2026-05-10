@@ -1,8 +1,6 @@
 using Mechanics.Domain.Base;
-using Mechanics.Domain.Customers;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
-using Mechanics.Domain.Vehicles;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data.Interceptors;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +11,8 @@ namespace Mechanics.Infra.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Customer> Customers { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<ServiceCatalog> ServiceCatalog { get; set; }
-    public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<WorkOrder> WorkOrders { get; set; }
     public DbSet<WorkOrderHistory> WorkOrderHistories { get; set; }
 

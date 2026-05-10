@@ -1,8 +1,6 @@
 using Mechanics.Domain.Base;
 using Mechanics.Domain.Base.Validation;
-using Mechanics.Domain.Customers;
 using Mechanics.Domain.ServicesCatalog;
-using Mechanics.Domain.Vehicles;
 
 namespace Mechanics.Domain.WorkOrders;
 
@@ -12,7 +10,6 @@ namespace Mechanics.Domain.WorkOrders;
 public class WorkOrder : AbstractEntity, IValidatable
 {
     public required Guid CustomerId { get; init; }
-    public Customer? Customer { get; init; }
 
     /// <summary>
     ///     Chave de acesso para consulta pelo cliente.
@@ -20,7 +17,6 @@ public class WorkOrder : AbstractEntity, IValidatable
     public required string AccessKey { get; init; }
 
     public required Guid VehicleId { get; init; }
-    public Vehicle? Vehicle { get; init; }
 
     public WorkOrderStatus Status { get; set; }
     public DateTime LastUpdate { get; set; }
@@ -74,24 +70,6 @@ public class WorkOrder : AbstractEntity, IValidatable
     ///     Usuário a quem a OS foi atribuída (mecânico).
     /// </summary>
     public Guid? AssignedToUserId { get; set; }
-
-    /// <summary>
-    ///     Gera uma nova chave de acesso única por cliente.
-    /// </summary>
-    /// <param name="existingOrders">As ordens de serviço do cliente.</param>
-    /// <remarks>A chave é composta por 8 dígitos e deve ser única por cliente.</remarks>
-    /// <returns>Uma nova chave de acesso para ser usada em <see cref="AccessKey"/>.</returns>
-    public static string GenerateNewAccessKey(IEnumerable<WorkOrder> existingOrders)
-    {
-        var existingKeys = existingOrders.Select(order => order.AccessKey).ToHashSet();
-
-        while (true)
-        {
-            var newKey = string.Concat(Enumerable.Range(0, 8).Select(_ => Random.Shared.Next(0, 10)));
-            if (existingKeys.Add(newKey))
-                return newKey;
-        }
-    }
 
     public void Validate(ValidationBuilder builder)
     {

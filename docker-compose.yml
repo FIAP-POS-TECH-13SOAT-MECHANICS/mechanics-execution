@@ -6,7 +6,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Default=Server=mssql;Database=mechanics-${SERVICE_NAME};User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
-      - EmailSenderOptions__SmtpServer=mailpit
       - AwsCredentials__LocalstackUrl=http://localstack:4566
       - CrossServiceClients__IdentityBaseUrl=${IDENTITY?}
     ports:
@@ -16,8 +15,6 @@ services:
       - ./src/Mechanics.Api/keys:/app/keys:ro
     depends_on:
       mssql:
-        condition: service_healthy
-      mailpit:
         condition: service_healthy
       localstack:
         condition: service_healthy
@@ -40,25 +37,6 @@ services:
       retries: 10
       start_period: 10s
 
-  mailpit:
-    image: axllent/mailpit:v1.28
-    environment:
-      - MP_DATABASE=/data/mailpit.db
-      - MP_MAX_AGE=7d
-      - TZ=America/Sao_Paulo
-      - MP_SMTP_AUTH=postmaster@mechanics.com:xFCsMj6a4NWbZgr5
-      - MP_SMTP_AUTH_ALLOW_INSECURE=true
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    volumes:
-      - mailpit:/data
-    healthcheck:
-      test: 'wget --spider -q http://localhost:8025/api/v1/info'
-      interval: 2s
-      timeout: 5s
-      retries: 10
-
   localstack:
     image: localstack/localstack:3
     environment:
@@ -79,5 +57,3 @@ volumes:
     name: mechanics-${SERVICE_NAME}-dotnet
   mssql:
     name: mechanics-${SERVICE_NAME}-mssql
-  mailpit:
-    name: mechanics-${SERVICE_NAME}-mailpit

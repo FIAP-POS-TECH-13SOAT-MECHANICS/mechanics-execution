@@ -1,4 +1,5 @@
 ﻿using Mechanics.Application.Identity.Services;
+using Mechanics.Application.Vehicles.Services;
 using Mechanics.Infra.CrossServiceClient.Extensions;
 using Mechanics.Infra.CrossServiceClient.Options;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +14,8 @@ public static class CrossServiceClientsExtensions
         var options = configuration.GetSection(nameof(CrossServiceClients)).Get<CrossServiceClients>()!;
 
         services.AddHttpClients(configuration)
-            .AddCrossServiceClient<IUserService, UserService>(options.IdentityBaseUrl);
+            .AddCrossServiceClient<IIdentityApiService, IdentityApiService>(options.IdentityBaseUrl)
+            .AddCrossServiceClient<IWorkOrdersApiService, WorkOrdersApiService>(options.WorkOrdersBaseUrl);
 
         return services;
     }

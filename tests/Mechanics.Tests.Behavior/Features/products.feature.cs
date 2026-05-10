@@ -18,7 +18,7 @@ namespace Mechanics.Tests.Behavior.Features
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Reqnroll", "3.0.0.0")]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestClassAttribute()]
-    public partial class VeiculosFeature
+    public partial class ProdutosFeature
     {
         
         private global::Reqnroll.ITestRunner testRunner;
@@ -27,10 +27,10 @@ namespace Mechanics.Tests.Behavior.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Veículos", "Como um atendente autenticado\r\nQuero listar os veículos cadastrados\r\nPara consult" +
-                "ar o histórico de ordens de serviço", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Produtos", "Como um atendente autenticado\r\nQuero listar os produtos cadastrados\r\nPara consult" +
+                "ar o estoque de peças e serviços", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
-#line 1 "vehicles.feature"
+#line 1 "products.feature"
 #line hidden
         
         public virtual Microsoft.VisualStudio.TestTools.UnitTesting.TestContext TestContext
@@ -118,18 +118,18 @@ namespace Mechanics.Tests.Behavior.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/vehicles.feature.ndjson", 3);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/products.feature.ndjson", 3);
         }
         
-        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute("Listagem de veículos sem cadastros")]
-        [global::Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Listagem de veículos sem cadastros")]
-        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "Veículos")]
-        public async global::System.Threading.Tasks.Task ListagemDeVeiculosSemCadastros()
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute("Listagem de produtos sem cadastros")]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute("Listagem de produtos sem cadastros")]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestPropertyAttribute("FeatureTitle", "Produtos")]
+        public async global::System.Threading.Tasks.Task ListagemDeProdutosSemCadastros()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "0";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Listagem de veículos sem cadastros", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Listagem de produtos sem cadastros", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 6
@@ -146,7 +146,7 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
     await testRunner.GivenAsync("um atendente autenticado", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 8
-    await testRunner.WhenAsync("ele solicita a listagem de veículos", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("ele solicita a listagem de produtos", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 9
     await testRunner.ThenAsync("a resposta deve ser bem-sucedida", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");

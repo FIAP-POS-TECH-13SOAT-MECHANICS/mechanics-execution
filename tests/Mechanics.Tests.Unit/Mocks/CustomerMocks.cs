@@ -1,20 +1,30 @@
-﻿using Mechanics.Domain.Customers;
+﻿using Mechanics.Application.Vehicles.Responses;
 
 namespace Mechanics.Tests.Unit.Mocks;
 
 public static class CustomerMocks
 {
-    public static Customer CreateCustomerPf(Guid id) => new()
+    public static CustomerResponse CreateCustomerPf(Guid id) => new()
     {
         Id = id,
         Name = "Joao da Silva",
         Email = "joao@EXAMPLE.com",
+        Document = new PersonalDocumentResponse
+        {
+            Type = "cpf",
+            Number = "63077737078",
+        },
     };
 
-    public static Customer CreateCustomerPj(Guid id) => new()
+    public static CustomerResponse CreateCustomerPj(Guid id) => new()
     {
         Id = id,
         Name = "Empresa XYZ Ltda",
         Email = "contato@xyz.com",
+        Document = new PersonalDocumentResponse
+        {
+            Type = "cnpj",
+            Number = "23177806000155",
+        },
     };
 }
