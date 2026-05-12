@@ -38,16 +38,12 @@ public class WorkOrderAppService(
             var vehicle = await workOrdersApiService.GetVehicleByIdAsync(request.VehicleId, cancellationToken);
             EntityNotFoundException.ThrowIfNull(vehicle, request.VehicleId);
 
-            var existingOrders = await db.WorkOrders.Where(w => w.CustomerId == vehicle.OwnerId)
-                .ToListAsync(cancellationToken);
-            var accessKey = "WorkOrder.GenerateNewAccessKey(existingOrders)"; // TODO obter pelo evento do SQS
-
             var now = DateTime.Now;
             var wo = new WorkOrder
             {
+                Id = request.WorkOrderId,
                 CustomerId = vehicle.OwnerId,
                 VehicleId = request.VehicleId,
-                AccessKey = accessKey,
                 Status = WorkOrderStatus.Received,
                 CreationDate = now,
                 LastUpdate = now,

@@ -11,7 +11,7 @@ public static class VehicleMocks
         Model = "Gol",
         Color = "silver",
         Year = "2019",
-        LicensePlate = "LWP6069",
+        LicensePlate = plate,
         Chassis = chassis,
         OwnerId = ownerId,
     };
