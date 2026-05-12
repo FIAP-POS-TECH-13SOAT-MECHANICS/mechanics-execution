@@ -357,7 +357,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = "KEY123",
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,
@@ -413,7 +412,6 @@ public class WorkOrderAppServiceTests
                     Id = workOrderId,
                     CustomerId = customerId,
                     VehicleId = vehicleId,
-                    AccessKey = "KEY123",
                     Status = WorkOrderStatus.Received,
                     CreationDate = DateTime.Now,
                     LastUpdate = DateTime.Now,
@@ -480,7 +478,6 @@ public class WorkOrderAppServiceTests
                     Id = workOrderId,
                     CustomerId = customerId,
                     VehicleId = vehicleId,
-                    AccessKey = "KEY123",
                     Status = WorkOrderStatus.Received,
                     CreationDate = DateTime.Now,
                     LastUpdate = DateTime.Now,
@@ -539,7 +536,7 @@ public class WorkOrderAppServiceTests
         // 2) User not found
         var wo = new WorkOrder
         {
-            Id = Guid.NewGuid(), CustomerId = customerId, VehicleId = vehicleId, AccessKey = "KEY123",
+            Id = Guid.NewGuid(), CustomerId = customerId, VehicleId = vehicleId,
             Status = WorkOrderStatus.Received, CreationDate = DateTime.Now, LastUpdate = DateTime.Now,
         };
         context.WorkOrders.Add(wo);
@@ -584,7 +581,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = "KEY123",
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,
@@ -605,7 +601,6 @@ public class WorkOrderAppServiceTests
         var resp = await service.Get(wo.Id, TestContext.CancellationTokenSource.Token);
         IsNotNull(resp, "Response should not be null");
         AreEqual(wo.Id, resp.Id);
-        AreEqual(wo.AccessKey, resp.AccessKey);
         AreEqual(wo.Status, resp.Status);
         AreEqual(wo.CustomerId, resp.CustomerId);
         AreEqual(wo.VehicleId, resp.VehicleId);
@@ -670,7 +665,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = "KEY123",
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,

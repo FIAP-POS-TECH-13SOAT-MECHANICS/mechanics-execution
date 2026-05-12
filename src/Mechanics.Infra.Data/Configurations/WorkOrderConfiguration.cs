@@ -14,8 +14,7 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
             .HasDefaultValueSql("SYSDATETIME()")
             .ValueGeneratedOnAdd();
 
-        builder.Property(entity => entity.AccessKey).HasMaxLength(8).IsFixedLength();
-        builder.HasIndex(entity => new { entity.CustomerId, entity.AccessKey }).IsUnique();
+        builder.HasIndex(entity => entity.CustomerId);
 
         builder.HasMany(entity => entity.ServiceCatalog)
             .WithMany(entity => entity.WorkOrders);
