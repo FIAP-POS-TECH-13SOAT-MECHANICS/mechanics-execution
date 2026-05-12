@@ -1,17 +1,19 @@
 using AutoMapper;
-using Mechanics.Application.Notification.Services;
+using Mechanics.Application.Identity.Services;
 using Mechanics.Application.Observability;
 using Mechanics.Application.Utils;
 using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Utils.PagedList;
+using Mechanics.Application.Vehicles.Services;
+using Mechanics.Application.WorkOrders.Consumers;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base.Exceptions;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data;
+using Mechanics.Infra.Security.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -21,72 +23,39 @@ namespace Mechanics.Application.WorkOrders.Services;
 public class WorkOrderAppService(
     AppDbContext db,
     IMapper mapper,
-    IEmailService emailService,
     ILogger<WorkOrderAppService> logger,
-    BudgetAppService budgetService)
+    IIdentityApiService identityApiService,
+    IWorkOrdersApiService workOrdersApiService)
     : IAppService
 {
     /// <summary>
     ///     Cria uma nova WorkOrder.
     /// </summary>
-    public async Task<CreateItemResponse> Create(CreateWorkOrderRequest request, CancellationToken cancellationToken = default)
+    public async Task<CreateItemResponse> Create(WorkOrderCreatedEvent request, CancellationToken cancellationToken = default)
     {
         try
         {
-            var vehicle = await db.Vehicles
-                .Include(v => v.Owner)
-                .FirstOrDefaultAsync(v => v.Id == request.VehicleId, cancellationToken);
-
+            var vehicle = await workOrdersApiService.GetVehicleByIdAsync(request.VehicleId, cancellationToken);
             EntityNotFoundException.ThrowIfNull(vehicle, request.VehicleId);
-            EntityNotFoundException.ThrowIfNull(vehicle.Owner, vehicle.OwnerId);
-
-            var existingOrders = await db.WorkOrders.Where(w => w.CustomerId == vehicle.OwnerId)
-                .ToListAsync(cancellationToken);
-            var accessKey = WorkOrder.GenerateNewAccessKey(existingOrders);
 
             var now = DateTime.Now;
             var wo = new WorkOrder
             {
+                Id = request.WorkOrderId,
                 CustomerId = vehicle.OwnerId,
                 VehicleId = request.VehicleId,
-                AccessKey = accessKey,
                 Status = WorkOrderStatus.Received,
                 CreationDate = now,
                 LastUpdate = now,
                 ReportedProblem = request.ReportedProblem,
             };
 
-            if (request.Products != null)
-            {
-                var productIds = request.Products.Select(p => p.ProductId).ToList();
-                var existingIds = await db.Products
-                    .Where(product => productIds.Contains(product.Id))
-                    .Select(product => product.Id)
-                    .ToListAsync(cancellationToken);
-
-                var notFoundId = productIds.Except(existingIds).FirstOrDefault();
-                EntityNotFoundException.ThrowIfNotFound<Product>(notFoundId == Guid.Empty, notFoundId);
-
-                wo.Products = request.Products.Select(product => new WorkOrderProduct
-                {
-                    ProductId = product.ProductId,
-                    Quantity = product.Quantity,
-                }).ToList();
-            }
-
-            if (request.ServiceCatalogIds?.Any() == true)
-            {
-                var services = await db.ServiceCatalog.Where(s => request.ServiceCatalogIds.Contains(s.Id))
-                    .ToListAsync(cancellationToken);
-                wo.ServiceCatalog = services;
-            }
-
             await db.WorkOrders.AddAsync(wo, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
 
             AppMetrics.WorkOrdersCreated.Add(1, new TagList
             {
-                { "status", "created" }
+                { "status", "created" },
             });
 
             logger.LogInformation(
@@ -94,26 +63,6 @@ public class WorkOrderAppService(
                 wo.Id,
                 wo.VehicleId,
                 wo.Status.ToString());
-
-            if (vehicle.Owner != null)
-            {
-                try
-                {
-                    await emailService.SendWorkOrderCreated(vehicle.Owner!, wo, cancellationToken);
-                    AppMetrics.EmailsSent.Add(1, new TagList
-                    {
-                        { "template", "work_order_created" }
-                    });
-                }
-                catch (Exception emailEx)
-                {
-                    AppMetrics.EmailsFailed.Add(1, new TagList
-                    {
-                        { "template", "work_order_created" }
-                    });
-                    logger.LogWarning(emailEx, "Failed to send WorkOrder created email for {WorkOrderId}", wo.Id);
-                }
-            }
 
             return new CreateItemResponse { CreatedId = wo.Id };
         }
@@ -130,14 +79,10 @@ public class WorkOrderAppService(
         var wo = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == workOrderId, cancellationToken);
         EntityNotFoundException.ThrowIfNull(wo, workOrderId);
 
-        var assignedUser = await db.Users
-            .AsNoTracking()
-            .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Id == assignedToUserId, cancellationToken);
-
+        var assignedUser = await identityApiService.GetUserById(assignedToUserId, cancellationToken);
         EntityNotFoundException.ThrowIfNull(assignedUser, assignedToUserId);
 
-        if (assignedUser.Role?.Name != RoleNames.Mechanic)
+        if (assignedUser.Role.Name != RoleNames.Mechanic)
             throw new BusinessException("Assigned user must be a mechanic.");
 
         wo.AssignedToUserId = assignedToUserId;
@@ -148,7 +93,7 @@ public class WorkOrderAppService(
             WorkOrderId = wo.Id,
             Action = "Assigned",
             Details = comment is null ? $"Assigned to {assignedToUserId}" : $"Assigned to {assignedToUserId}. Comment: {comment}",
-            PerformedByUserId = performedByUserId
+            PerformedByUserId = performedByUserId,
         };
         await db.WorkOrderHistories.AddAsync(hist, cancellationToken);
 
@@ -200,29 +145,6 @@ public class WorkOrderAppService(
     }
 
     /// <summary>
-    ///     Consulta pela accessKey.
-    /// </summary>
-    /// <remarks>Usado pelo cliente para acompanhar o progresso da OS.</remarks>
-    public async Task<GetWorkOrderResponse?> TrackByAccessKey(Guid customerId, string accessKey,
-        CancellationToken cancellationToken = default)
-    {
-        var normalizedAccessKey = accessKey.Replace(" ", "");
-
-        var customer = await db.Customers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken);
-        EntityNotFoundException.ThrowIfNull(customer, customerId);
-
-        var wo = await db.WorkOrders
-            .Include(w => w.Products)
-            .Include(w => w.ServiceCatalog)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.CustomerId == customer.Id && w.AccessKey == normalizedAccessKey, cancellationToken);
-
-        return wo is null ? null : mapper.Map<GetWorkOrderResponse>(wo);
-    }
-
-    /// <summary>
     ///     Solicita aprovação do orçamento para a ordem.
     /// </summary>
     public async Task RequestApproval(Guid workOrderId, Guid performedByUserId, CancellationToken cancellationToken = default)
@@ -230,7 +152,8 @@ public class WorkOrderAppService(
         var woExists = await db.WorkOrders.AnyAsync(w => w.Id == workOrderId, cancellationToken);
         EntityNotFoundException.ThrowIfNotFound<WorkOrder>(woExists, workOrderId);
 
-        await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
+        // TODO enviar ordem e todos os produtos para Billing
+        // await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
     }
 
     /// <summary>
@@ -253,12 +176,11 @@ public class WorkOrderAppService(
 
         if (newStatus == WorkOrderStatus.InProgress)
         {
-            var approved = wo.ApprovedAt != null ||
-                           await db.Budgets.AnyAsync(b => b.WorkOrderId == workOrderId && b.Status == BudgetStatus.Approved,
-                               cancellationToken);
+            // TODO consultar ordem para confirmar que orçamento está aprovado
+            /*var approved = wo.ApprovedAt != null;
 
             if (!approved)
-                throw new BusinessException("Order must be approved before starting.");
+                throw new BusinessException("Order must be approved before starting.");*/
         }
 
         var timeInPreviousStatus = DateTime.Now - wo.LastUpdate;
@@ -284,7 +206,7 @@ public class WorkOrderAppService(
         var tags = new TagList
         {
             { "previous_status", previous.ToString() },
-            { "new_status", newStatus.ToString() }
+            { "new_status", newStatus.ToString() },
         };
 
         AppMetrics.TimeInStatusTotalSeconds.Add(
@@ -298,7 +220,7 @@ public class WorkOrderAppService(
             Math.Round(timeInPreviousStatus.TotalSeconds, 2),
             new TagList
             {
-                { "status", previous.ToString() }
+                { "status", previous.ToString() },
             });
 
         logger.LogInformation(
@@ -311,13 +233,12 @@ public class WorkOrderAppService(
         await db.SaveChangesAsync(cancellationToken);
 
         // notifica cliente sobre a mudança de status
-        var customer = await db.Customers.FindAsync([wo.CustomerId], cancellationToken);
+        var customer = await workOrdersApiService.GetCustomerByIdAsync(wo.CustomerId, cancellationToken);
         if (customer != null)
         {
             try
             {
-                await emailService.SendWorkOrderStatusChanged(customer, wo, previous, cancellationToken);
-                AppMetrics.EmailsSent.Add(1, new TagList { { "template", "status_changed" } });
+                // TODO publicar evento de alteração de status da OS
             }
             catch (Exception ex)
             {
@@ -456,7 +377,7 @@ public class WorkOrderAppService(
         return new GetWorkOrderAverageTimeResponse
         {
             WorkOrderId = workOrder.Id,
-            TotalAverageTime = workOrder.ServiceCatalog?.Sum(s => s.AverageTime) ?? 0
+            TotalAverageTime = workOrder.ServiceCatalog?.Sum(s => s.AverageTime) ?? 0,
         };
     }
 

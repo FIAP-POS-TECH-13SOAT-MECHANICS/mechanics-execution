@@ -1,7 +1,6 @@
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
 using Mechanics.Application.WorkOrders.Services;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Security;
 using Mechanics.Infra.Security.Models;
@@ -20,24 +19,6 @@ namespace Mechanics.Api.Controllers.WorkOrders;
 [Authorize(Policy = PolicyNames.EmployeesOnly)]
 public class WorkOrdersController(WorkOrderAppService workOrderService, ICurrentUserService currentUserService) : ControllerBase
 {
-    /// <summary>
-    ///     Cria uma nova ordem de serviço.
-    /// </summary>
-    /// <param name="request">Dados da ordem de serviço.</param>
-    /// <param name="cancellationToken">Token para cancelamento da operação.</param>
-    /// <response code="201">Ordem criada com sucesso.</response>
-    /// <response code="400">Requisição inválida.</response>
-    [HttpPost]
-    [Consumes(typeof(CreateWorkOrderRequest), "application/json")]
-    [Produces("application/json", Type = typeof(object))]
-    [ProducesResponseType(typeof(object), (int)HttpStatusCode.Created)]
-    [ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create(CreateWorkOrderRequest request, CancellationToken cancellationToken)
-    {
-        var response = await workOrderService.Create(request, cancellationToken);
-        return CreatedAtAction(nameof(Get), new { id = response.CreatedId }, response);
-    }
-
     /// <summary>
     ///     Obtém os detalhes de uma ordem de serviço por id.
     /// </summary>

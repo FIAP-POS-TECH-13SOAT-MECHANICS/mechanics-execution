@@ -1,13 +1,13 @@
-﻿name: mechanics-:SERVICE_NAME
+﻿name: mechanics-${SERVICE_NAME?}
 
 services:
   dotnet:
     build: .
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__Default=Server=mssql;Database=mechanics-:SERVICE_NAME;User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
-      - EmailSenderOptions__SmtpServer=mailpit
+      - ConnectionStrings__Default=Server=mssql;Database=mechanics-${SERVICE_NAME};User Id=sa;Password=2%r6dZ6Xk@g3;TrustServerCertificate=True;
       - AwsCredentials__LocalstackUrl=http://localstack:4566
+      - CrossServiceClients__IdentityBaseUrl=${IDENTITY?}
     ports:
       - "5000:8080"
     volumes:
@@ -15,8 +15,6 @@ services:
       - ./src/Mechanics.Api/keys:/app/keys:ro
     depends_on:
       mssql:
-        condition: service_healthy
-      mailpit:
         condition: service_healthy
       localstack:
         condition: service_healthy
@@ -39,33 +37,15 @@ services:
       retries: 10
       start_period: 10s
 
-  mailpit:
-    image: axllent/mailpit:v1.28
-    environment:
-      - MP_DATABASE=/data/mailpit.db
-      - MP_MAX_AGE=7d
-      - TZ=America/Sao_Paulo
-      - MP_SMTP_AUTH=postmaster@mechanics.com:xFCsMj6a4NWbZgr5
-      - MP_SMTP_AUTH_ALLOW_INSECURE=true
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    volumes:
-      - mailpit:/data
-    healthcheck:
-      test: 'wget --spider -q http://localhost:8025/api/v1/info'
-      interval: 2s
-      timeout: 5s
-      retries: 10
-
   localstack:
     image: localstack/localstack:3
     environment:
-      - SERVICES=sqs
+      - SERVICES=sqs,lambda
     ports:
       - "4566:4566"
     volumes:
-      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/localstack-init.sh
+      - ./scripts/localstack:/etc/localstack/init/ready.d:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: 'curl -f http://localhost:4566/_localstack/health'
       interval: 2s
@@ -74,8 +54,6 @@ services:
 
 volumes:
   dotnet:
-    name: mechanics-:SERVICE_NAME-dotnet
+    name: mechanics-${SERVICE_NAME}-dotnet
   mssql:
-    name: mechanics-:SERVICE_NAME-mssql
-  mailpit:
-    name: mechanics-:SERVICE_NAME-mailpit
+    name: mechanics-${SERVICE_NAME}-mssql

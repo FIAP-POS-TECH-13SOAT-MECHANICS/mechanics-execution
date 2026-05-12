@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Mechanics.Infra.CrossServiceClient\Mechanics.Infra.CrossServiceClient.csproj" />
     <ProjectReference Include="..\Mechanics.Infra.Messaging\Mechanics.Infra.Messaging.csproj" />
     <ProjectReference Include="..\Mechanics.Infra.Observability\Mechanics.Infra.Observability.csproj" />
     <ProjectReference Include="..\Mechanics.Infra.Integrations.EmailSender\Mechanics.Infra.Integrations.EmailSender.csproj"/>

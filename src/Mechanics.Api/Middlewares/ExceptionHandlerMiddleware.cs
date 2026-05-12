@@ -87,7 +87,7 @@ public class ExceptionHandlerMiddleware(RequestDelegate next, ILogger<ExceptionH
             Title = GetErrorTitle(statusCode, e),
             Extensions =
             {
-                ["traceId"] = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier
+                ["traceId"] = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier,
             },
 #if DEBUG
             Detail = JsonSerializer.Serialize(new ExceptionDetails(e), SerializerOptions),

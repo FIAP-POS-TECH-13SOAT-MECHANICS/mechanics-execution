@@ -1,4 +1,3 @@
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
 
@@ -15,11 +14,9 @@ public static class WorkOrderMocks
             Id = id,
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = WorkOrder.GenerateNewAccessKey([]),
             Status = WorkOrderStatus.Received,
             CreationDate = now,
             LastUpdate = now,
-            AssignedToUser = UserMocks.CreateUser(userId, $"meca-{userId:N}", "63196372006", RoleNames.Mechanic),
             AssignedToUserId = userId,
         };
     }
@@ -40,13 +37,10 @@ public static class WorkOrderMocks
             Id = id,
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = WorkOrder.GenerateNewAccessKey([]),
             Status = WorkOrderStatus.Received,
             CreationDate = now,
             LastUpdate = now,
             ServiceCatalog = new List<ServiceCatalog> { service },
-            AssignedToUser = UserMocks.CreateUser(new Guid("380038b3-5118-484a-bfd3-35df9363d969"), "meca", "77184822005",
-                RoleNames.Mechanic),
             AssignedToUserId = new Guid("380038b3-5118-484a-bfd3-35df9363d969"),
         };
     }

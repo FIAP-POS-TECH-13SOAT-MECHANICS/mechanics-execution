@@ -1,12 +1,12 @@
 app:
-  name: SERVICE
+  name: execution
   project: fiap-mechanics
   version: 1.0.0
   env: dev
   port: 5000
   runMigrationsOnUpdate: true
   baseUrl: http://localhost:5000
-  routePrefix: SERVICE
+  routePrefix: execution
 
 service:
   minReplicas: 2
@@ -19,13 +19,6 @@ image:
   repository: ""
   tag: latest
 
-email:
-  smtpServer: mailpit-smtp
-  smtpPort: 25
-  sslRequired: false
-  senderName: FIAP Mechanics
-  senderAddress: "postmaster@mechanics.com"
-
 luckyPennyLicenseKey: eyJhbGciOiJSUzI1NiIsImtpZCI6Ikx1Y2t5UGVubnlTb2Z0d2FyZUxpY2Vuc2VLZXkvYmJiMTNhY2I1OTkwNGQ4OWI0Y2IxYzg1ZjA4OGNjZjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2x1Y2t5cGVubnlzb2Z0d2FyZS5jb20iLCJhdWQiOiJMdWNreVBlbm55U29mdHdhcmUiLCJleHAiOiIxNzg5Nzc2MDAwIiwiaWF0IjoiMTc1ODMxNzc4NSIsImFjY291bnRfaWQiOiIwMTk5NjNlNzg3MGM3ZjllODdmODBhMzFhMGE0Mjk0MCIsImN1c3RvbWVyX2lkIjoiY3RtXzAxazVoeWdjdGhqdzloNXJ4dzJteDk4eXpjIiwic3ViX2lkIjoiLSIsImVkaXRpb24iOiIwIiwidHlwZSI6IjIifQ.MmZWulAN_imvEEUxZzPgZWJ2CnV55iWWNIC2PGp7JXS6CoX7QTB2ZXdu4Lu_e8ykdV4Samh0-p4e95M3XOkyYpPUTrVlaF5ANQ4h14thTFUZ97d1gYYWAZhhW1aIIfroD4R39DboG6q-b_IT296ZA_s0pRg17ulbN9UdlbWTKiDAqxvraUJ4jG2r2Loynz4DriSqR7Ao4sWx2MoMpurzN4SWG5YOWcRd6xBrE31k6bFZryZ28ENg2ym7WWb6vBVjsyzBUDGhwb06Ahzm7wdfZRLTJdYWIAadAx6TpgvyDuomRyIcDAuuHqrbSU4Z-et6qTIP9DHNJM-HExgkbbUZbw
 
 secrets:
@@ -35,4 +28,7 @@ secrets:
   keysSecretName: jwt/public-key
 
 queueNames:
-  CustomerCreated: customer-created
+  BudgetCreated: budget-created
+  BudgetRevised: budget-revised
+  WorkOrderCreated: work-order-created
+  WorkOrderStatusChanged: work-order-status-changed

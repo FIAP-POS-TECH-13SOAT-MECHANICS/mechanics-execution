@@ -21,3 +21,4 @@ riderModule.iml
 appsettings.Development.json
 src/Mechanics.Api/keys
 !src/Mechanics.Api/keys/.gitkeep
+.env

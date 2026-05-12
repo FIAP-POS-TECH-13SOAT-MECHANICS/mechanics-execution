@@ -1,7 +1,7 @@
 using Mechanics.Application.ServicesCatalog.Requests;
 using Mechanics.Application.Utils.CommonResponses;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.ServicesCatalog;
+using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Integration.Helpers;
 using System.Net;
 using System.Net.Http.Json;
@@ -23,7 +23,7 @@ public class ServiceCatalogControllerTests
         var client = factory.GetAuthenticatedClient(RoleNames.Administrator);
 
         // Act
-        var response = await client.GetAsync("api/service-catalog", TestContext.CancellationTokenSource.Token);
+        var response = await client.GetAsync("execution/service-catalog", TestContext.CancellationTokenSource.Token);
 
         // Assert
         Console.WriteLine($"Status: {response.StatusCode}");
@@ -48,7 +48,7 @@ public class ServiceCatalogControllerTests
         };
 
         // Act
-        var httpResponse = await client.PostAsJsonAsync("api/service-catalog", request, TestContext.CancellationTokenSource.Token);
+        var httpResponse = await client.PostAsJsonAsync("execution/service-catalog", request, TestContext.CancellationTokenSource.Token);
 
         // Assert
         Assert.AreEqual(HttpStatusCode.Created, httpResponse.StatusCode);
@@ -87,11 +87,11 @@ public class ServiceCatalogControllerTests
         };
 
         // Act
-        var firstResponse = await client.PostAsJsonAsync("api/service-catalog", request, TestContext.CancellationTokenSource.Token);
+        var firstResponse = await client.PostAsJsonAsync("execution/service-catalog", request, TestContext.CancellationTokenSource.Token);
         Assert.AreEqual(HttpStatusCode.Created, firstResponse.StatusCode);
 
         var secondResponse =
-            await client.PostAsJsonAsync("api/service-catalog", duplicateRequest, TestContext.CancellationTokenSource.Token);
+            await client.PostAsJsonAsync("execution/service-catalog", duplicateRequest, TestContext.CancellationTokenSource.Token);
 
         var raw = await secondResponse.Content.ReadAsStringAsync(TestContext.CancellationTokenSource.Token);
         Console.WriteLine($"Status: {secondResponse.StatusCode}, Body: {raw}");
@@ -119,12 +119,12 @@ public class ServiceCatalogControllerTests
             Status = ServiceCatalogStatusType.Active,
         };
 
-        var postResponse = await client.PostAsJsonAsync("api/service-catalog", request, TestContext.CancellationTokenSource.Token);
+        var postResponse = await client.PostAsJsonAsync("execution/service-catalog", request, TestContext.CancellationTokenSource.Token);
         Assert.AreEqual(HttpStatusCode.Created, postResponse.StatusCode);
 
         // Act
         var searchResponse =
-            await client.GetAsync("api/service-catalog/search?term=SUV", TestContext.CancellationTokenSource.Token);
+            await client.GetAsync("execution/service-catalog/search?term=SUV", TestContext.CancellationTokenSource.Token);
         var content = await searchResponse.Content.ReadAsStringAsync(TestContext.CancellationTokenSource.Token);
 
         // Assert
@@ -141,7 +141,7 @@ public class ServiceCatalogControllerTests
         var client = factory.GetAuthenticatedClient(RoleNames.Administrator);
 
         // Act
-        var response = await client.GetAsync("api/service-catalog/search?term=xyz-inexistente",
+        var response = await client.GetAsync("execution/service-catalog/search?term=xyz-inexistente",
             TestContext.CancellationTokenSource.Token);
 
         // Assert
@@ -169,13 +169,13 @@ public class ServiceCatalogControllerTests
                 Status = ServiceCatalogStatusType.Active,
             };
 
-            var response = await client.PostAsJsonAsync("api/service-catalog", request, TestContext.CancellationTokenSource.Token);
+            var response = await client.PostAsJsonAsync("execution/service-catalog", request, TestContext.CancellationTokenSource.Token);
             Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         }
 
         // Act
         var pagedResponse =
-            await client.GetAsync("api/service-catalog?page=2&itemsPerPage=10", TestContext.CancellationTokenSource.Token);
+            await client.GetAsync("execution/service-catalog?page=2&itemsPerPage=10", TestContext.CancellationTokenSource.Token);
         var content = await pagedResponse.Content.ReadAsStringAsync(TestContext.CancellationTokenSource.Token);
 
         // Assert

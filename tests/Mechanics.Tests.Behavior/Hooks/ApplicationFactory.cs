@@ -2,16 +2,12 @@
 using Mechanics.Api;
 using Mechanics.Infra.Data;
 using Mechanics.Infra.Integrations.EmailSender;
-using Mechanics.Infra.Messaging.Consumers;
 using Mechanics.Infra.Messaging.Publishers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 using Moq;
-using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 

@@ -28,4 +28,12 @@
     <ProjectReference Include="..\..\src\Mechanics.Domain\Mechanics.Domain.csproj" />
     <ProjectReference Include="..\..\src\Mechanics.Infra.Data\Mechanics.Infra.Data.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\scripts\localstack\*">
+      <Link>scripts/localstack/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>False</Visible>
+    </None>
+  </ItemGroup>
 </Project>

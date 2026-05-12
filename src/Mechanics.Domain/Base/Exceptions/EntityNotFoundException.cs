@@ -22,7 +22,7 @@ public class EntityNotFoundException : BusinessException
     {
     }
 
-    public static void ThrowIfNull<T>([NotNull] T? entity, Guid? key) where T : AbstractEntity
+    public static void ThrowIfNull<T>([NotNull] T? entity, Guid? key) where T : class
     {
         if (entity is not null)
             return;
@@ -32,7 +32,7 @@ public class EntityNotFoundException : BusinessException
 
     public static void ThrowIfNull<T>([NotNull] T? entity, object propertyValue,
         [CallerArgumentExpression("propertyValue")]
-        string propertyName = "") where T : AbstractEntity
+        string propertyName = "") where T : class
     {
         if (entity is not null)
             return;
@@ -40,7 +40,7 @@ public class EntityNotFoundException : BusinessException
         throw new EntityNotFoundException(typeof(T).Name, propertyName, propertyValue);
     }
 
-    public static void ThrowIfNotFound<T>([DoesNotReturnIf(false)] bool found, Guid? key) where T : AbstractEntity
+    public static void ThrowIfNotFound<T>([DoesNotReturnIf(false)] bool found, Guid? key) where T : class
     {
         if (found)
             return;

@@ -1,13 +1,13 @@
 using AutoMapper;
+using Mechanics.Application.Identity.Responses;
+using Mechanics.Application.WorkOrders.Consumers;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Services;
-using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base.Exceptions;
-using Mechanics.Domain.Customers;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
-using Mechanics.Domain.Vehicles;
 using Mechanics.Domain.WorkOrders;
+using Mechanics.Infra.Security.Models;
 using Mechanics.Tests.Unit.Helpers;
 using Mechanics.Tests.Unit.Mocks;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +25,8 @@ public class WorkOrderAppServiceTests
     public TestContext TestContext { get; set; }
 
     private IMapper _mapper = null!;
-    private EmailServiceMock _emailMock = null!;
+    private IdentityApiServiceMock _identityApiServiceMock = null!;
+    private WorkOrdersApiServiceMock _workOrdersApiServiceMock = null!;
     private NullLoggerFactory _loggerFactory = null!;
 
     [TestInitialize]
@@ -33,33 +34,26 @@ public class WorkOrderAppServiceTests
     {
         _mapper = AutoMapperFactory.CreateMap("WorkOrders");
 
-        _emailMock = new EmailServiceMock();
+        _identityApiServiceMock = new IdentityApiServiceMock();
+        _workOrdersApiServiceMock = new WorkOrdersApiServiceMock();
         _loggerFactory = new NullLoggerFactory();
     }
 
     #region Criar OSs
 
-    [TestMethod("Create should persist work order and send created email")]
-    public async Task Create_ShouldPersistAndSendEmail()
+    [TestMethod("Create should persist work order")]
+    public async Task Create_ShouldPersist()
     {
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
         var productId = Guid.NewGuid();
         var serviceId = Guid.NewGuid();
 
+        _workOrdersApiServiceMock.VehicleToReturn = VehicleMocks.CreateVehicle(vehicleId, customerId);
+
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId, Name = "John", Email = "john@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId, Manufacturer = "Make", Model = "Model", Color = VehicleColor.White, Year = "2020",
-                    LicensePlate = new LicensePlate("ABC1234"), Chassis = "CH", OwnerId = customerId,
-                });
                 ctx.Products.Add(new Product
                 {
                     Id = productId,
@@ -81,23 +75,21 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
-        var request = new CreateWorkOrderRequest
+        var request = new WorkOrderCreatedEvent
         {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTime.Now,
+            WorkOrderId = Guid.NewGuid(),
+            CustomerId = customerId,
             VehicleId = vehicleId,
-            Products = [new WorkOrderProductRequest { ProductId = productId, Quantity = 1 }],
-            ServiceCatalogIds = [serviceId],
+            Status = "Received",
             ReportedProblem = "Test problem",
         };
 
@@ -106,47 +98,32 @@ public class WorkOrderAppServiceTests
         var wo = await context.WorkOrders.FindAsync([id.CreatedId], TestContext.CancellationTokenSource.Token);
         IsNotNull(wo, "Work order should be persisted");
         AreEqual(customerId, wo.CustomerId, "CustomerId persisted");
-        IsTrue(_emailMock.SendWorkOrderCreatedCalled, "SendWorkOrderCreated should be called");
     }
 
     [TestMethod("Create should throw when vehicle owner customer does not exist")]
     public async Task Create_ShouldThrow_WhenVehicleOwnerCustomerMissing()
     {
-        var orphanOwnerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
 
-        await using var context = new DbContextTestBuilder()
-            .WithData(ctx =>
-            {
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.White,
-                    Year = "2022",
-                    LicensePlate = new LicensePlate("ORP1234"),
-                    Chassis = "CHORP",
-                    OwnerId = orphanOwnerId,
-                });
-            })
-            .Build();
+        _workOrdersApiServiceMock.VehicleToReturn = null;
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
+        await using var context = new DbContextTestBuilder().Build();
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
-        var request = new CreateWorkOrderRequest
+        var request = new WorkOrderCreatedEvent
         {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTime.Now,
+            WorkOrderId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(),
             VehicleId = vehicleId,
+            Status = "Received",
         };
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
@@ -157,8 +134,8 @@ public class WorkOrderAppServiceTests
 
     #region Alterar status
 
-    [TestMethod("RequestApproval should calculate estimate, set PendingApproval and send email")]
-    public async Task RequestApproval_ShouldCalculateEstimateAndSendEmail()
+    [TestMethod("RequestApproval should calculate estimate and set PendingApproval")]
+    public async Task RequestApproval_ShouldCalculateEstimate()
     {
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
@@ -167,16 +144,6 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId, Name = "Mary", Email = "mary@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "98765432100"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId, Manufacturer = "Make", Model = "Model", Color = VehicleColor.Black, Year = "2021",
-                    LicensePlate = new LicensePlate("DEF5678"), Chassis = "CH2", OwnerId = customerId,
-                });
                 ctx.ServiceCatalog.Add(new ServiceCatalog
                 {
                     Id = svcId, Name = "Oil change", Description = "Change oil", BasePrice = 100m, AverageTime = 30,
@@ -187,33 +154,26 @@ public class WorkOrderAppServiceTests
 
         var svc = await context.ServiceCatalog.FindAsync([svcId], TestContext.CancellationTokenSource.Token);
         var wo = WorkOrderMocks.CreateWorkOrderWithServices(Guid.NewGuid(), customerId, vehicleId, svc!);
+        wo.Status = WorkOrderStatus.UnderDiagnosis;
 
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         var performedBy = Guid.NewGuid();
-        await service.RequestApproval(wo.Id, performedBy, TestContext.CancellationTokenSource.Token);
+        await service.ChangeStatus(wo.Id, WorkOrderStatus.PendingApproval, performedBy, null,
+            TestContext.CancellationTokenSource.Token);
 
         var reloaded = await context.WorkOrders.FindAsync([wo.Id], TestContext.CancellationTokenSource.Token);
         IsNotNull(reloaded);
         AreEqual(WorkOrderStatus.PendingApproval, reloaded.Status);
-        IsNotNull(reloaded.ApprovalRequestedAt);
         AreEqual(performedBy, reloaded.LastStatusChangeBy);
-        IsTrue(_emailMock.SendWorkOrderPendingApprovalCalled);
-
-        AreEqual(100m, _emailMock.LastBudgetTotal);
     }
 
     [TestMethod("ChangeStatus should require approval before InProgress and should record history")]
@@ -222,71 +182,29 @@ public class WorkOrderAppServiceTests
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
 
-        await using var context = new DbContextTestBuilder()
-            .WithData(ctx =>
-            {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Pedro",
-                    Email = "pedro@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "11122233344"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.Gray,
-                    Year = "2019",
-                    LicensePlate = new LicensePlate("GHI9012"),
-                    Chassis = "CH3",
-                    OwnerId = customerId,
-                });
-            })
-            .Build();
+        await using var context = new DbContextTestBuilder().Build();
 
         var wo = WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customerId, vehicleId);
         wo.Status = WorkOrderStatus.PendingApproval;
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
-
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         var mechanicRoleId = Guid.NewGuid();
-        var mechanicRole = new Role
-        {
-            Id = mechanicRoleId,
-            Name = RoleNames.Mechanic,
-            CreationDate = DateTime.UtcNow,
-        };
-        context.Roles.Add(mechanicRole);
-
         var performingUserId = Guid.NewGuid();
-        var performingUser = new User
+        _identityApiServiceMock.UserToReturn = new UserResponse
         {
             Id = performingUserId,
             FullName = "Test Mechanic",
             CpfNumber = "45678901234",
-            Email = "test_mechanic@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = mechanicRoleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
         };
-        context.Users.Add(performingUser);
-
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         await ThrowsExactlyAsync<BusinessException>(() =>
             service.ChangeStatus(wo.Id, WorkOrderStatus.Received, performingUserId, comment: null,
@@ -297,19 +215,13 @@ public class WorkOrderAppServiceTests
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         var statusChangedBy = Guid.NewGuid();
-        var otherUser = new User
+        _identityApiServiceMock.UserToReturn = new UserResponse
         {
             Id = statusChangedBy,
             FullName = "Another Mechanic",
             CpfNumber = "56789012345",
-            Email = "another_mechanic@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = mechanicRoleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
         };
-        context.Users.Add(otherUser);
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
         await service.ChangeStatus(wo.Id, WorkOrderStatus.InProgress, statusChangedBy, comment: null,
             TestContext.CancellationTokenSource.Token);
@@ -321,38 +233,15 @@ public class WorkOrderAppServiceTests
         var histories = await context.WorkOrderHistories.Where(h => h.WorkOrderId == wo.Id && h.Action == "StatusChanged")
             .ToListAsync(TestContext.CancellationTokenSource.Token);
         IsNotEmpty(histories);
-        IsTrue(_emailMock.SendWorkOrderStatusChangedCalled);
     }
 
-    [TestMethod("ChangeStatus should reject same status and skip notifications")]
+    [TestMethod("ChangeStatus should reject same status")]
     public async Task ChangeStatus_ShouldRejectSameStatus()
     {
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
 
-        await using var context = new DbContextTestBuilder()
-            .WithData(ctx =>
-            {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Laura",
-                    Email = "laura@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "55566677788"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.Red,
-                    Year = "2018",
-                    LicensePlate = new LicensePlate("JKL3456"),
-                    Chassis = "CH4",
-                    OwnerId = customerId,
-                });
-            })
-            .Build();
+        await using var context = new DbContextTestBuilder().Build();
 
         var wo = WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customerId, vehicleId);
         AreEqual(WorkOrderStatus.Received, wo.Status);
@@ -360,40 +249,22 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
-
-        var roleId = Guid.NewGuid();
-        var role = new Role
-        {
-            Id = roleId,
-            Name = RoleNames.Mechanic,
-            CreationDate = DateTime.UtcNow,
-        };
-        context.Roles.Add(role);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         var actorId = Guid.NewGuid();
-        var actor = new User
+        _identityApiServiceMock.UserToReturn = new UserResponse
         {
             Id = actorId,
             FullName = "Actor User",
             CpfNumber = "67890123456",
-            Email = "actor@example.com",
-            PasswordHash = "hash",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            RoleId = roleId,
-            CreationDate = DateTime.UtcNow,
+            Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic },
         };
-        context.Users.Add(actor);
 
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
@@ -401,7 +272,6 @@ public class WorkOrderAppServiceTests
             service.ChangeStatus(wo.Id, WorkOrderStatus.Received, actorId, comment: null,
                 TestContext.CancellationTokenSource.Token));
 
-        IsFalse(_emailMock.SendWorkOrderStatusChangedCalled, "Status change email should not be sent");
         var histories = await context.WorkOrderHistories.Where(h => h.WorkOrderId == wo.Id)
             .ToListAsync(TestContext.CancellationTokenSource.Token);
         IsEmpty(histories, "No history should be recorded");
@@ -451,26 +321,6 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Client",
-                    Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
-                });
-
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.White,
-                    Year = "2020",
-                    LicensePlate = new LicensePlate("ABC1234"),
-                    Chassis = "CH",
-                    OwnerId = customerId,
-                });
-
                 ctx.Products.Add(new Product
                 {
                     Id = productId,
@@ -493,17 +343,13 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         // create base work order without products/services
         var wo = new WorkOrder
@@ -511,7 +357,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = WorkOrder.GenerateNewAccessKey([]),
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,
@@ -561,62 +406,12 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                // base customer/vehicle
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Client",
-                    Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12345678909"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.White,
-                    Year = "2020",
-                    LicensePlate = new LicensePlate("AAA1B23"),
-                    Chassis = "CH",
-                    OwnerId = customerId,
-                });
-
-                // mechanic role
-                ctx.Roles.Add(new Role { Id = mechanicRoleId, Name = RoleNames.Mechanic, CreationDate = DateTime.UtcNow });
-
-                // assigned user (mechanic)
-                ctx.Users.Add(new User
-                {
-                    Id = assignedToUserId,
-                    FullName = "Assigned Mechanic",
-                    CpfNumber = "78901234567",
-                    Email = "assigned@example.com",
-                    PasswordHash = "hash",
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    RoleId = mechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
-
-                // performing user (could also be mechanic)
-                ctx.Users.Add(new User
-                {
-                    Id = performedByUserId,
-                    FullName = "Supervisor",
-                    CpfNumber = "89012345678",
-                    Email = "sup@example.com",
-                    PasswordHash = "hash",
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    RoleId = mechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
-
                 // work order in Received
                 ctx.WorkOrders.Add(new WorkOrder
                 {
                     Id = workOrderId,
                     CustomerId = customerId,
                     VehicleId = vehicleId,
-                    AccessKey = WorkOrder.GenerateNewAccessKey([]),
                     Status = WorkOrderStatus.Received,
                     CreationDate = DateTime.Now,
                     LastUpdate = DateTime.Now,
@@ -624,17 +419,21 @@ public class WorkOrderAppServiceTests
             })
             .Build();
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
+        // mock identity
+        _identityApiServiceMock.UserToReturn = new UserResponse
+        {
+            Id = assignedToUserId,
+            FullName = "Assigned Mechanic",
+            CpfNumber = "78901234567",
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
+        };
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         const string comment = "Take this ASAP";
         await service.Assign(workOrderId, assignedToUserId, performedByUserId, comment, TestContext.CancellationTokenSource.Token);
@@ -652,9 +451,8 @@ public class WorkOrderAppServiceTests
         Contains(comment, histAssign[0].Details!);
         AreEqual(performedByUserId, histAssign[0].PerformedByUserId);
 
-        // Auto-transition from Received -> UnderDiagnosis should have occurred and notified
+        // Auto-transition from Received -> UnderDiagnosis should have occurred
         AreEqual(WorkOrderStatus.UnderDiagnosis, reloaded.Status, "Auto-transition to UnderDiagnosis expected");
-        IsTrue(_emailMock.SendWorkOrderStatusChangedCalled, "Status changed email should be sent due to auto-transition");
 
         var histStatus = await context.WorkOrderHistories
             .Where(h => h.WorkOrderId == workOrderId && h.Action == "StatusChanged")
@@ -675,45 +473,33 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "11122233344"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId, Manufacturer = "M", Model = "X", Color = VehicleColor.Black, Year = "2022",
-                    LicensePlate = new LicensePlate("BBB1C23"), Chassis = "CH2", OwnerId = customerId,
-                });
-
-                // non-mechanic role
-                ctx.Roles.Add(new Role { Id = nonMechanicRoleId, Name = "Admin", CreationDate = DateTime.UtcNow });
-
-                // non-mechanic user
-                ctx.Users.Add(new User
-                {
-                    Id = assignedToUserId, FullName = "Admin User", CpfNumber = "11122233344", Email = "admin@example.com",
-                    PasswordHash = "h", SecurityStamp = Guid.NewGuid().ToString(), RoleId = nonMechanicRoleId,
-                    CreationDate = DateTime.UtcNow,
-                });
-                ctx.Users.Add(new User
-                {
-                    Id = performerId, FullName = "Perf", CpfNumber = "22233344455", Email = "perf@example.com", PasswordHash = "h",
-                    SecurityStamp = Guid.NewGuid().ToString(), RoleId = nonMechanicRoleId, CreationDate = DateTime.UtcNow,
-                });
-
                 ctx.WorkOrders.Add(new WorkOrder
                 {
-                    Id = workOrderId, CustomerId = customerId, VehicleId = vehicleId,
-                    AccessKey = WorkOrder.GenerateNewAccessKey([]), Status = WorkOrderStatus.Received, CreationDate = DateTime.Now,
+                    Id = workOrderId,
+                    CustomerId = customerId,
+                    VehicleId = vehicleId,
+                    Status = WorkOrderStatus.Received,
+                    CreationDate = DateTime.Now,
                     LastUpdate = DateTime.Now,
                 });
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        // mock user
+        _identityApiServiceMock.UserToReturn = new UserResponse
+        {
+            Id = assignedToUserId,
+            FullName = "Admin User",
+            CpfNumber = "11122233344",
+            Role = new RoleResponse { Id = nonMechanicRoleId, Name = "Admin" },
+        };
+
+        var service = new WorkOrderAppService(
+            context,
+            _mapper,
+            _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         await ThrowsExactlyAsync<BusinessException>(() =>
             service.Assign(workOrderId, assignedToUserId, performerId, null, TestContext.CancellationTokenSource.Token));
@@ -724,38 +510,25 @@ public class WorkOrderAppServiceTests
     {
         var customerId = Guid.NewGuid();
         var vehicleId = Guid.NewGuid();
-        var mechanicRoleId = Guid.NewGuid();
 
-        await using var context = new DbContextTestBuilder()
-            .WithData(ctx =>
-            {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "99988877766"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId, Manufacturer = "M", Model = "Y", Color = VehicleColor.Gray, Year = "2020",
-                    LicensePlate = new LicensePlate("CCC1D23"), Chassis = "CH3", OwnerId = customerId,
-                });
-                ctx.Roles.Add(new Role { Id = mechanicRoleId, Name = RoleNames.Mechanic, CreationDate = DateTime.UtcNow });
-            })
-            .Build();
+        await using var context = new DbContextTestBuilder().Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(
+            context,
+            _mapper,
+            _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         // 1) WorkOrder not found
         var missingWoId = Guid.NewGuid();
         var someUserId = Guid.NewGuid();
-        await context.Users.AddAsync(new User
+        // user is found via mock
+        _identityApiServiceMock.UserToReturn = new UserResponse
         {
-            Id = someUserId, FullName = "Mec A", CpfNumber = "33344455566", Email = "meca@example.com", PasswordHash = "h",
-            SecurityStamp = Guid.NewGuid().ToString(), RoleId = mechanicRoleId, CreationDate = DateTime.UtcNow,
-        }, TestContext.CancellationTokenSource.Token);
-        await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
+            Id = someUserId, FullName = "Mec A", CpfNumber = "33344455566",
+            Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic },
+        };
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
             service.Assign(missingWoId, someUserId, someUserId, null, TestContext.CancellationTokenSource.Token));
@@ -763,11 +536,13 @@ public class WorkOrderAppServiceTests
         // 2) User not found
         var wo = new WorkOrder
         {
-            Id = Guid.NewGuid(), CustomerId = customerId, VehicleId = vehicleId, AccessKey = WorkOrder.GenerateNewAccessKey([]),
+            Id = Guid.NewGuid(), CustomerId = customerId, VehicleId = vehicleId,
             Status = WorkOrderStatus.Received, CreationDate = DateTime.Now, LastUpdate = DateTime.Now,
         };
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
+
+        _identityApiServiceMock.UserToReturn = null;
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
             service.Assign(wo.Id, Guid.NewGuid(), someUserId, null, TestContext.CancellationTokenSource.Token));
@@ -788,16 +563,6 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId, Name = "C", Email = "c@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "22233344455"),
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId, Manufacturer = "M", Model = "Z", Color = VehicleColor.Blue, Year = "2019",
-                    LicensePlate = new LicensePlate("DDD1E23"), Chassis = "CH4", OwnerId = customerId,
-                });
                 ctx.Products.Add(new Product
                 {
                     Id = productId, Name = "P1", Description = "D1", Quantity = 10, Status = ProductStatusType.Active,
@@ -816,7 +581,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = WorkOrder.GenerateNewAccessKey([]),
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,
@@ -825,20 +589,18 @@ public class WorkOrderAppServiceTests
         // attach relations
         var prod = await context.Products.FindAsync([productId], TestContext.CancellationTokenSource.Token);
         var svc = await context.ServiceCatalog.FindAsync([serviceId], TestContext.CancellationTokenSource.Token);
-        wo.Products = [new WorkOrderProduct { Product = prod, Quantity = 1 }];
+        wo.Products = [new WorkOrderProduct { Product = prod!, Quantity = 1 }];
         wo.ServiceCatalog = new List<ServiceCatalog> { svc! };
 
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
         var resp = await service.Get(wo.Id, TestContext.CancellationTokenSource.Token);
         IsNotNull(resp, "Response should not be null");
         AreEqual(wo.Id, resp.Id);
-        AreEqual(wo.AccessKey, resp.AccessKey);
         AreEqual(wo.Status, resp.Status);
         AreEqual(wo.CustomerId, resp.CustomerId);
         AreEqual(wo.VehicleId, resp.VehicleId);
@@ -851,72 +613,11 @@ public class WorkOrderAppServiceTests
     {
         await using var context = new DbContextTestBuilder().Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
         var resp = await service.Get(Guid.NewGuid(), TestContext.CancellationTokenSource.Token);
         IsNull(resp);
-    }
-
-    [TestMethod("TrackByAccessKey should return WorkOrder for matching customer id and access key")]
-    public async Task TrackByAccessKey_ShouldReturnWorkOrder_WhenCustomerAndAccessKeyMatch()
-    {
-        var customerId = Guid.NewGuid();
-        var vehicleId = Guid.NewGuid();
-        var workOrderId = Guid.NewGuid();
-        const string rawDocument = "12345678909";
-        const string storedAccessKey = "123123";
-        const string queryAccessKey = "1 2 3 1 2 3";
-
-        await using var context = new DbContextTestBuilder()
-            .WithData(ctx =>
-            {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Jane",
-                    Email = "jane@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, rawDocument),
-                });
-
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.White,
-                    Year = "2020",
-                    LicensePlate = new LicensePlate("ABC1D23"),
-                    Chassis = "CHX",
-                    OwnerId = customerId,
-                });
-
-                ctx.WorkOrders.Add(new WorkOrder
-                {
-                    Id = workOrderId,
-                    CustomerId = customerId,
-                    VehicleId = vehicleId,
-                    AccessKey = storedAccessKey,
-                    Status = WorkOrderStatus.Received,
-                    CreationDate = DateTime.Now,
-                    LastUpdate = DateTime.Now,
-                });
-            })
-            .Build();
-
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
-
-        var resp = await service.TrackByAccessKey(customerId, queryAccessKey,
-            TestContext.CancellationTokenSource.Token);
-
-        IsNotNull(resp, "Response should not be null");
-        AreEqual(workOrderId, resp.Id, "Returned work order id should match");
-        AreEqual(storedAccessKey.Replace(" ", string.Empty), resp.AccessKey, "AccessKey should match stored value");
-        AreEqual(customerId, resp.CustomerId, "CustomerId should match");
-        AreEqual(vehicleId, resp.VehicleId, "VehicleId should match");
     }
 
     #endregion
@@ -934,26 +635,6 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(new Customer
-                {
-                    Id = customerId,
-                    Name = "Client",
-                    Email = "client@example.com",
-                    Document = new PersonalDocument(DocumentType.Cpf, "12312312312"),
-                });
-
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleId,
-                    Manufacturer = "Make",
-                    Model = "Model",
-                    Color = VehicleColor.White,
-                    Year = "2020",
-                    LicensePlate = new LicensePlate("AVG1234"),
-                    Chassis = "CHAVG",
-                    OwnerId = customerId,
-                });
-
                 ctx.ServiceCatalog.Add(new ServiceCatalog
                 {
                     Id = svc1Id,
@@ -984,7 +665,6 @@ public class WorkOrderAppServiceTests
             Id = Guid.NewGuid(),
             CustomerId = customerId,
             VehicleId = vehicleId,
-            AccessKey = WorkOrder.GenerateNewAccessKey([]),
             Status = WorkOrderStatus.Received,
             CreationDate = DateTime.Now,
             LastUpdate = DateTime.Now,
@@ -994,17 +674,13 @@ public class WorkOrderAppServiceTests
         context.WorkOrders.Add(wo);
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
 
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
 
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         var response = await service.GetAverageServiceTime(wo.Id, TestContext.CancellationTokenSource.Token);
 
@@ -1017,16 +693,12 @@ public class WorkOrderAppServiceTests
     public async Task GetAverageServiceTime_ShouldThrowWhenWorkOrderNotFound()
     {
         await using var context = new DbContextTestBuilder().Build();
-        var budgetService = new BudgetAppService(
-            context,
-            _emailMock,
-            _loggerFactory.CreateLogger<BudgetAppService>());
         var service = new WorkOrderAppService(
             context,
             _mapper,
-            _emailMock,
             _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+            _identityApiServiceMock,
+            _workOrdersApiServiceMock);
 
         await ThrowsAsync<EntityNotFoundException>(async () =>
             await service.GetAverageServiceTime(Guid.NewGuid(), TestContext.CancellationTokenSource.Token));
@@ -1046,23 +718,14 @@ public class WorkOrderAppServiceTests
 
         await using var context = new DbContextTestBuilder()
             .WithData([
-                CustomerMocks.CreateCustomerPf(customerA),
-                CustomerMocks.CreateCustomerPf(customerB),
-            ])
-            .WithData([
-                VehicleMocks.CreateVehicle(vehicleA1, customerA, "ABC4D09"),
-                VehicleMocks.CreateVehicle(vehicleB1, customerB, "ABC3D72"),
-            ])
-            .WithData([
                 WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customerA, vehicleA1, Guid.NewGuid()),
                 WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customerA, vehicleA1, Guid.NewGuid()),
                 WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customerB, vehicleB1, Guid.NewGuid()),
             ])
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
         var request = new GetWorkOrdersRequest { CustomerId = customerA, Page = 1, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1081,26 +744,14 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(CustomerMocks.CreateCustomerPf(customer));
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleX, Manufacturer = "Make", Model = "X", Color = VehicleColor.White, Year = "2020",
-                    LicensePlate = new LicensePlate("JKL3C56"), Chassis = "CH-X", OwnerId = customer,
-                });
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicleY, Manufacturer = "Make", Model = "Y", Color = VehicleColor.Black, Year = "2021",
-                    LicensePlate = new LicensePlate("MNO4D78"), Chassis = "CH-Y", OwnerId = customer,
-                });
                 ctx.WorkOrders.Add(WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customer, vehicleX, Guid.NewGuid()));
                 ctx.WorkOrders.Add(WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customer, vehicleY, Guid.NewGuid()));
                 ctx.WorkOrders.Add(WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customer, vehicleX, Guid.NewGuid()));
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
         var request = new GetWorkOrdersRequest { VehicleId = vehicleX, Page = 1, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1118,20 +769,13 @@ public class WorkOrderAppServiceTests
         await using var context = new DbContextTestBuilder()
             .WithData(ctx =>
             {
-                ctx.Customers.Add(CustomerMocks.CreateCustomerPf(customer));
-                ctx.Vehicles.Add(new Vehicle
-                {
-                    Id = vehicle, Manufacturer = "Make", Model = "M", Color = VehicleColor.Silver, Year = "2019",
-                    LicensePlate = new LicensePlate("PQR5E67"), Chassis = "CH-M", OwnerId = customer,
-                });
                 for (var i = 0; i < 25; i++)
                     ctx.WorkOrders.Add(WorkOrderMocks.CreateWorkOrderEntity(Guid.NewGuid(), customer, vehicle, Guid.NewGuid()));
             })
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
         var request = new GetWorkOrdersRequest { Page = 2, ItemsPerPage = 10 };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
@@ -1140,23 +784,21 @@ public class WorkOrderAppServiceTests
         AreEqual(10, response.Items.Count());
     }
 
-    [TestMethod("GetList should filter completed")]
-    public async Task GetList_ShouldFilterCompleted()
+    [TestMethod("GetList should return work orders")]
+    public async Task GetList_ShouldReturnItems()
     {
+        var statuses = Enum.GetValues<WorkOrderStatus>();
         await using var context = new DbContextTestBuilder()
-            .WithData(Enum.GetValues<WorkOrderStatus>().Select(WorkOrderMocks.CreateWorkOrderEntity))
+            .WithData(statuses.Select(WorkOrderMocks.CreateWorkOrderEntity))
             .Build();
 
-        var budgetService = new BudgetAppService(context, _emailMock, _loggerFactory.CreateLogger<BudgetAppService>());
-        var service = new WorkOrderAppService(context, _mapper, _emailMock, _loggerFactory.CreateLogger<WorkOrderAppService>(),
-            budgetService);
+        var service = new WorkOrderAppService(context, _mapper, _loggerFactory.CreateLogger<WorkOrderAppService>(),
+            _identityApiServiceMock, _workOrdersApiServiceMock);
 
-        var request = new GetWorkOrdersRequest { Page = 1, ItemsPerPage = 10 };
+        var request = new GetWorkOrdersRequest { Page = 1, ItemsPerPage = 10, IncludeCompleted = true };
         var response = await service.GetList(request, TestContext.CancellationTokenSource.Token);
 
-        AreEqual(4, response.TotalCount);
-        AreEqual(4, response.Items.Count());
-        AreEqual(WorkOrderStatus.InProgress, response.Items.First().Status);
+        AreEqual(statuses.Length, response.TotalCount);
     }
 
     #endregion
