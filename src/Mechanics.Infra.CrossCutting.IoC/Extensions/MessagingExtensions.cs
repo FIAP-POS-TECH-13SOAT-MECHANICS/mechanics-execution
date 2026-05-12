@@ -1,4 +1,5 @@
-﻿using Mechanics.Infra.Messaging.Extensions;
+using Mechanics.Application.WorkOrders.Consumers;
+using Mechanics.Infra.Messaging.Extensions;
 using Mechanics.Infra.Messaging.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +18,7 @@ public static class MessagingExtensions
             if (configuration.GetSection(nameof(MessagingOptions)).Get<MessagingOptions>()!.DisableConsumers)
                 return;
 
-            // TODO builder.AddConsumer<CustomerCreatedConsumer, CustomerCreatedEvent>();
+            builder.AddConsumer<WorkOrderCreatedConsumer, WorkOrderCreatedEvent>();
         });
 
         return services;

@@ -1,5 +1,6 @@
 using AutoMapper;
 using Mechanics.Application.Identity.Responses;
+using Mechanics.Application.WorkOrders.Consumers;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Services;
 using Mechanics.Domain.Base.Exceptions;
@@ -81,11 +82,14 @@ public class WorkOrderAppServiceTests
             _identityApiServiceMock,
             _workOrdersApiServiceMock);
 
-        var request = new CreateWorkOrderRequest
+        var request = new WorkOrderCreatedEvent
         {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTime.Now,
+            WorkOrderId = Guid.NewGuid(),
+            CustomerId = customerId,
             VehicleId = vehicleId,
-            Products = [new WorkOrderProductRequest { ProductId = productId, Quantity = 1 }],
-            ServiceCatalogIds = [serviceId],
+            Status = "Received",
             ReportedProblem = "Test problem",
         };
 
@@ -112,9 +116,14 @@ public class WorkOrderAppServiceTests
             _identityApiServiceMock,
             _workOrdersApiServiceMock);
 
-        var request = new CreateWorkOrderRequest
+        var request = new WorkOrderCreatedEvent
         {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTime.Now,
+            WorkOrderId = Guid.NewGuid(),
+            CustomerId = Guid.NewGuid(),
             VehicleId = vehicleId,
+            Status = "Received",
         };
 
         await ThrowsExactlyAsync<EntityNotFoundException>(() =>
@@ -194,7 +203,7 @@ public class WorkOrderAppServiceTests
             Id = performingUserId,
             FullName = "Test Mechanic",
             CpfNumber = "45678901234",
-            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
         };
 
         await ThrowsExactlyAsync<BusinessException>(() =>
@@ -211,7 +220,7 @@ public class WorkOrderAppServiceTests
             Id = statusChangedBy,
             FullName = "Another Mechanic",
             CpfNumber = "56789012345",
-            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
         };
 
         await service.ChangeStatus(wo.Id, WorkOrderStatus.InProgress, statusChangedBy, comment: null,
@@ -254,7 +263,7 @@ public class WorkOrderAppServiceTests
             Id = actorId,
             FullName = "Actor User",
             CpfNumber = "67890123456",
-            Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic }
+            Role = new RoleResponse { Id = Guid.NewGuid(), Name = RoleNames.Mechanic },
         };
 
         await context.SaveChangesAsync(TestContext.CancellationTokenSource.Token);
@@ -418,7 +427,7 @@ public class WorkOrderAppServiceTests
             Id = assignedToUserId,
             FullName = "Assigned Mechanic",
             CpfNumber = "78901234567",
-            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic }
+            Role = new RoleResponse { Id = mechanicRoleId, Name = RoleNames.Mechanic },
         };
 
         var service = new WorkOrderAppService(
@@ -485,7 +494,7 @@ public class WorkOrderAppServiceTests
             Id = assignedToUserId,
             FullName = "Admin User",
             CpfNumber = "11122233344",
-            Role = new RoleResponse { Id = nonMechanicRoleId, Name = "Admin" }
+            Role = new RoleResponse { Id = nonMechanicRoleId, Name = "Admin" },
         };
 
         var service = new WorkOrderAppService(

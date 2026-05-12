@@ -5,6 +5,7 @@ using Mechanics.Application.Utils;
 using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Utils.PagedList;
 using Mechanics.Application.Vehicles.Services;
+using Mechanics.Application.WorkOrders.Consumers;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
 using Mechanics.Domain.Base.Exceptions;
@@ -30,7 +31,7 @@ public class WorkOrderAppService(
     /// <summary>
     ///     Cria uma nova WorkOrder.
     /// </summary>
-    public async Task<CreateItemResponse> Create(CreateWorkOrderRequest request, CancellationToken cancellationToken = default)
+    public async Task<CreateItemResponse> Create(WorkOrderCreatedEvent request, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -53,37 +54,12 @@ public class WorkOrderAppService(
                 ReportedProblem = request.ReportedProblem,
             };
 
-            if (request.Products != null)
-            {
-                var productIds = request.Products.Select(p => p.ProductId).ToList();
-                var existingIds = await db.Products
-                    .Where(product => productIds.Contains(product.Id))
-                    .Select(product => product.Id)
-                    .ToListAsync(cancellationToken);
-
-                var notFoundId = productIds.Except(existingIds).FirstOrDefault();
-                EntityNotFoundException.ThrowIfNotFound<Product>(notFoundId == Guid.Empty, notFoundId);
-
-                wo.Products = request.Products.Select(product => new WorkOrderProduct
-                {
-                    ProductId = product.ProductId,
-                    Quantity = product.Quantity,
-                }).ToList();
-            }
-
-            if (request.ServiceCatalogIds?.Any() == true)
-            {
-                var services = await db.ServiceCatalog.Where(s => request.ServiceCatalogIds.Contains(s.Id))
-                    .ToListAsync(cancellationToken);
-                wo.ServiceCatalog = services;
-            }
-
             await db.WorkOrders.AddAsync(wo, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
 
             AppMetrics.WorkOrdersCreated.Add(1, new TagList
             {
-                { "status", "created" }
+                { "status", "created" },
             });
 
             logger.LogInformation(
@@ -121,7 +97,7 @@ public class WorkOrderAppService(
             WorkOrderId = wo.Id,
             Action = "Assigned",
             Details = comment is null ? $"Assigned to {assignedToUserId}" : $"Assigned to {assignedToUserId}. Comment: {comment}",
-            PerformedByUserId = performedByUserId
+            PerformedByUserId = performedByUserId,
         };
         await db.WorkOrderHistories.AddAsync(hist, cancellationToken);
 
@@ -248,7 +224,7 @@ public class WorkOrderAppService(
             Math.Round(timeInPreviousStatus.TotalSeconds, 2),
             new TagList
             {
-                { "status", previous.ToString() }
+                { "status", previous.ToString() },
             });
 
         logger.LogInformation(
@@ -405,7 +381,7 @@ public class WorkOrderAppService(
         return new GetWorkOrderAverageTimeResponse
         {
             WorkOrderId = workOrder.Id,
-            TotalAverageTime = workOrder.ServiceCatalog?.Sum(s => s.AverageTime) ?? 0
+            TotalAverageTime = workOrder.ServiceCatalog?.Sum(s => s.AverageTime) ?? 0,
         };
     }
 

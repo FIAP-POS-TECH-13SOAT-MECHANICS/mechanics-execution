@@ -28,4 +28,7 @@ secrets:
   keysSecretName: jwt/public-key
 
 queueNames:
-  CustomerCreated: customer-created
+  BudgetCreated: budget-created
+  BudgetRevised: budget-revised
+  WorkOrderCreated: work-order-created
+  WorkOrderStatusChanged: work-order-status-changed
