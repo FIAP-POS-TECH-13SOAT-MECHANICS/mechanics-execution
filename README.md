@@ -8,6 +8,17 @@ Gestão da execução das ordens de serviço.
 - Banco de dados: MSSQL 2025
 - Chave pública para JWT: AWS Secrets Manager
 
+```mermaid
+graph TD
+    GW[API Gateway] -->|HTTP| EX[Execution Service]
+    EX -->|REST síncrono| ID[Identity Service]
+
+    WOC[SQS: work-order-created] -->|consume| EX
+    EX -->|publica| WOSC[SQS: work-order-status-changed]
+
+    EX -->|persiste| DB[(RDS: MS SQL Server)]
+```
+
 ## Serviços consumidos
 
 - [Identity](https://github.com/FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-identity): Informações de usuários
