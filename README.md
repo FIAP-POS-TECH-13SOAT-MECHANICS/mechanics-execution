@@ -12,9 +12,12 @@ Gestão da execução das ordens de serviço.
 graph TD
     GW[API Gateway] -->|HTTP| EX[Execution Service]
     EX -->|REST síncrono| ID[Identity Service]
+    EX -->|REST síncrono| WOS[Work Orders Service]
 
-    WOC[SQS: work-order-created] -->|consume| EX
+    WOC[SQS: work-order-created] -->|consumido por| EX
+    BR[SQS: budget-revised] -->|consumido por| EX
     EX -->|publica| WOSC[SQS: work-order-status-changed]
+    EX -->|publica| BC[SQS: budget-created]
 
     EX -->|persiste| DB[(RDS: MS SQL Server)]
 ```
@@ -29,6 +32,24 @@ O comando abaixo retorna essa URL:
 ```bash
 aws elbv2 describe-load-balancers --names fiap-mechanics-dev --query "LoadBalancers[*].DNSName" --output text
 ```
+
+## Messageria
+
+As filas devem ser criadas pela camada `messaging` do [repositório de infraestrutura](https://github.com/FIAP-POS-TECH-13SOAT-MECHANICS/mechanics-infra).
+
+### Consumers
+
+| Fila                                       | Descrição                                                      |
+|--------------------------------------------|----------------------------------------------------------------|
+| `fiap-mechanics-{env}-work-order-created`  | Recebe novas ordens de serviço para iniciar o diagnóstico      |
+| `fiap-mechanics-{env}-budget-revised`      | Recebe aprovação ou rejeição do orçamento pelo cliente         |
+
+### Publishers
+
+| Fila                                             | Descrição                                                         |
+|--------------------------------------------------|-------------------------------------------------------------------|
+| `fiap-mechanics-{env}-work-order-status-changed` | Publicado em toda alteração de status da OS                       |
+| `fiap-mechanics-{env}-budget-created`            | Publicado quando o mecânico conclui a análise e monta o orçamento |
 
 ## Execução do projeto
 
