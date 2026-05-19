@@ -15,11 +15,6 @@ public class WorkOrder : AbstractEntity, IValidatable
     public required Guid CustomerId { get; init; }
     public Customer? Customer { get; init; }
 
-    /// <summary>
-    ///     Chave de acesso para consulta pelo cliente.
-    /// </summary>
-    public required string AccessKey { get; init; }
-
     public required Guid VehicleId { get; init; }
     public Vehicle? Vehicle { get; init; }
 
