@@ -1,4 +1,4 @@
-﻿namespace Mechanics.Application.WorkOrders.Consumers;
+namespace Mechanics.Application.WorkOrders.Events;
 
 public class WorkOrderCreatedEvent
 {

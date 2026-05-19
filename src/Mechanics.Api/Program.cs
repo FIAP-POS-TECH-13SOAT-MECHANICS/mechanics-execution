@@ -63,8 +63,8 @@ public class Program
         app.MapControllers()
             .RequireAuthorization();
 
-        if (app.Environment.IsDevelopment())
-            await app.ApplyMigrations();
+        //if (app.Environment.IsDevelopment())
+        //    await app.ApplyMigrations();
 
         if (!app.Environment.IsProduction())
             app.UseSwaggerDocumentation($"/{appInfo.RoutePrefix}");

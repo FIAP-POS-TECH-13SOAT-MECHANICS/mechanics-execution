@@ -1,11 +1,12 @@
 using AutoMapper;
+using Mechanics.Application.Budgets.Events;
 using Mechanics.Application.Identity.Services;
 using Mechanics.Application.Observability;
 using Mechanics.Application.Utils;
 using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Utils.PagedList;
 using Mechanics.Application.Vehicles.Services;
-using Mechanics.Application.WorkOrders.Consumers;
+using Mechanics.Application.WorkOrders.Events;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
 using Mechanics.Domain.Base.Exceptions;
@@ -13,6 +14,7 @@ using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data;
+using Mechanics.Infra.Messaging.Publishers;
 using Mechanics.Infra.Security.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,8 +27,9 @@ public class WorkOrderAppService(
     IMapper mapper,
     ILogger<WorkOrderAppService> logger,
     IIdentityApiService identityApiService,
-    IWorkOrdersApiService workOrdersApiService)
-    : IAppService
+    IWorkOrdersApiService workOrdersApiService,
+    IEventPublisher eventPublisher)
+    : IAppService, IWorkOrderAppService
 {
     /// <summary>
     ///     Cria uma nova WorkOrder.
@@ -38,12 +41,17 @@ public class WorkOrderAppService(
             var vehicle = await workOrdersApiService.GetVehicleByIdAsync(request.VehicleId, cancellationToken);
             EntityNotFoundException.ThrowIfNull(vehicle, request.VehicleId);
 
+            var existingOrders = await db.WorkOrders.Where(w => w.CustomerId == vehicle.OwnerId)
+                .ToListAsync(cancellationToken);
+            var accessKey = WorkOrder.GenerateNewAccessKey(existingOrders);
+
             var now = DateTime.Now;
             var wo = new WorkOrder
             {
                 Id = request.WorkOrderId,
                 CustomerId = vehicle.OwnerId,
                 VehicleId = request.VehicleId,
+                AccessKey = accessKey,
                 Status = WorkOrderStatus.Received,
                 CreationDate = now,
                 LastUpdate = now,
@@ -154,6 +162,86 @@ public class WorkOrderAppService(
 
         // TODO enviar ordem e todos os produtos para Billing
         // await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
+
+        var wo = await db.WorkOrders
+            .Include(w => w.Products)
+            .Include(w => w.ServiceCatalog)
+            .FirstOrDefaultAsync(w => w.Id == workOrderId, cancellationToken);
+
+        EntityNotFoundException.ThrowIfNull(wo, workOrderId);
+
+        // Calcula o orçamento (produtos + serviços)
+        var budgetItems = new List<Budgets.Events.BudgetItem>();
+        var total = decimal.Zero;
+
+        // Adiciona produtos
+        if (wo.Products?.Any() == true)
+        {
+            var productIds = wo.Products.Select(p => p.ProductId).ToList();
+            var products = await db.Products
+                .Where(p => productIds.Contains(p.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var workOrderProduct in wo.Products)
+            {
+                var product = products.FirstOrDefault(p => p.Id == workOrderProduct.ProductId);
+                if (product != null)
+                {
+                    var subtotal = product.UnitPrice * workOrderProduct.Quantity;
+                    total += subtotal;
+                    budgetItems.Add(new Budgets.Events.BudgetItem
+                    {
+                        Id = product.Id,
+                        Name = product.Name,
+                        UnitPrice = product.UnitPrice,
+                        Quantity = workOrderProduct.Quantity,
+                        Subtotal = subtotal,
+                    });
+                }
+            }
+        }
+
+        // Adiciona serviços
+        if (wo.ServiceCatalog?.Any() == true)
+        {
+            foreach (var service in wo.ServiceCatalog)
+            {
+                var subtotal = service.BasePrice;
+                total += subtotal;
+                budgetItems.Add(new Budgets.Events.BudgetItem
+                {
+                    Id = service.Id,
+                    Name = service.Name,
+                    UnitPrice = service.BasePrice,
+                    Quantity = 1,
+                    Subtotal = subtotal,
+                });
+            }
+        }
+
+        // Publica evento BudgetCreatedEvent
+        var budgetEvent = new BudgetCreatedEvent
+        {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTimeOffset.Now,
+            WorkOrderId = wo.Id,
+            CustomerId = wo.CustomerId,
+            VehicleId = wo.VehicleId,
+            Total = total,
+            ExpiresAt = DateTimeOffset.Now.AddDays(7), // Orçamento válido por 7 dias
+            Items = budgetItems.AsReadOnly(),
+        };
+
+        try
+        {
+            await eventPublisher.PublishAsync(budgetEvent, cancellationToken);
+            logger.LogInformation("Published BudgetCreatedEvent for WorkOrder {WorkOrderId} with total {Total}", wo.Id, total);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to publish BudgetCreatedEvent for WorkOrder {WorkOrderId}", wo.Id);
+            throw; // Relança pois a criação do orçamento é crítica
+        }
     }
 
     /// <summary>
@@ -231,6 +319,26 @@ public class WorkOrderAppService(
             Math.Round(timeInPreviousStatus.TotalSeconds, 2));
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // Publica evento de alteração de status para notificar outros serviços
+        try
+        {
+            var statusChangedEvent = new WorkOrderStatusChangedEvent
+            {
+                WorkOrderId = wo.Id,
+                LastStatusChangeBy = performedByUserId,
+                OldStatus = previous.ToString(),
+                NewStatus = newStatus.ToString(),
+                LastUpdate = DateTimeOffset.Now,
+            };
+            await eventPublisher.PublishAsync(statusChangedEvent, cancellationToken);
+            logger.LogInformation("Published WorkOrderStatusChangedEvent for WorkOrder {WorkOrderId}", wo.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to publish WorkOrderStatusChangedEvent for WorkOrder {WorkOrderId}", wo.Id);
+            // Não relança a exceção para não interromper o fluxo
+        }
 
         // notifica cliente sobre a mudança de status
         var customer = await workOrdersApiService.GetCustomerByIdAsync(wo.CustomerId, cancellationToken);

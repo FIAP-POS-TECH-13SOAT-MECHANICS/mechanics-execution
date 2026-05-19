@@ -1,4 +1,6 @@
+using Mechanics.Domain.Auth;
 using Mechanics.Domain.Base;
+using Mechanics.Domain.Customers;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
@@ -11,10 +13,14 @@ namespace Mechanics.Infra.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<Customer> Customers { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<ServiceCatalog> ServiceCatalog { get; set; }
     public DbSet<WorkOrder> WorkOrders { get; set; }
     public DbSet<WorkOrderHistory> WorkOrderHistories { get; set; }
+    public DbSet<Budget> Budgets { get; set; } = default!;
+    public DbSet<BudgetItem> BudgetItems { get; set; } = default!;
+    public DbSet<User> Users { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +29,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.HasDefaultSchema("Mechanics");
 
         ConfigureAbstractEntities(modelBuilder);
+        // Configura value objects/owned types
+        modelBuilder.Entity<Customer>().OwnsOne(c => c.Document, doc =>
+        {
+            doc.Property(d => d.Type).HasColumnName("DocumentType");
+            doc.Property(d => d.Number).HasColumnName("DocumentNumber").IsRequired();
+        });
+        modelBuilder.Entity<Mechanics.Domain.Vehicles.Vehicle>().OwnsOne(v => v.LicensePlate, lp =>
+        {
+            lp.Property(p => p.Number).HasColumnName("LicensePlateNumber").IsRequired();
+        });
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
 
