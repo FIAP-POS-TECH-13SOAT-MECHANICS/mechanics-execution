@@ -1,10 +1,8 @@
 ﻿using Amazon.SQS;
 using Mechanics.Api;
-using Mechanics.Infra.Messaging.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -45,10 +43,6 @@ public class ApplicationFactory : WebApplicationFactory<Program>
 
             var client = TestProperties.GetSqsClient();
             services.AddSingleton<IAmazonSQS>(client);
-
-            var options = services.BuildServiceProvider().GetRequiredService<IOptions<MessagingOptions>>();
-            foreach (var queue in options.Value.QueueNames.Values)
-                client.CreateQueueAsync(queue, CancellationToken.None).GetAwaiter().GetResult();
         });
 
         base.ConfigureWebHost(builder);

@@ -169,6 +169,7 @@ public class WorkOrderAppService(
             WorkOrderId = wo.Id,
             Status = BudgetStatus.Sent,
             Items = [],
+            CreationDate = DateTime.Now,
         };
         db.Budgets.Add(budget);
 
@@ -190,12 +191,15 @@ public class WorkOrderAppService(
                 budget.Total += subtotal;
                 budget.Items.Add(new BudgetItem
                 {
-                    Id = product.Id,
+                    ProductId = product.Id,
                     NameSnapshot = product.Name,
                     UnitPriceSnapshot = product.UnitPrice,
                     Quantity = workOrderProduct.Quantity,
                     Subtotal = subtotal,
                 });
+
+                // atualiza o estoque
+                product.Quantity -= workOrderProduct.Quantity;
             }
         }
 
@@ -208,7 +212,7 @@ public class WorkOrderAppService(
                 budget.Total += subtotal;
                 budget.Items.Add(new BudgetItem
                 {
-                    Id = service.Id,
+                    ServiceCatalogId = service.Id,
                     NameSnapshot = service.Name,
                     UnitPriceSnapshot = service.BasePrice,
                     Quantity = 1,
@@ -216,6 +220,13 @@ public class WorkOrderAppService(
                 });
             }
         }
+
+        wo.Status = WorkOrderStatus.PendingApproval;
+        wo.LastStatusChangeBy = performedByUserId;
+        wo.LastUpdate = DateTime.Now;
+        wo.ApprovalRequestedAt = DateTime.Now;
+
+        await db.SaveChangesAsync(cancellationToken);
 
         var budgetEvent = new BudgetCreatedEvent
         {
@@ -226,7 +237,7 @@ public class WorkOrderAppService(
             VehicleId = wo.VehicleId,
             Total = budget.Total,
             ExpiresAt = budget.ExpiresAt,
-            Items = budget.Items.Select(item=>new Budgets.Events.BudgetItem
+            Items = budget.Items.Select(item => new Budgets.Events.BudgetItem
             {
                 Id = item.Id,
                 Name = item.NameSnapshot,

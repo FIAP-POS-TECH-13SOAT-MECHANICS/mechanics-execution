@@ -98,7 +98,7 @@ public class BudgetAppServiceTests
 
         // Assert
         _emailServiceMock.Verify(
-            x => x.SendCustomerResponse(It.IsAny<UserResponse>(), It.IsAny<WorkOrder>(), It.IsAny<Budget>(), _message,
+            x => x.SendApprovedBudget(It.IsAny<UserResponse>(), It.IsAny<WorkOrder>(), It.IsAny<Budget>(), _message,
                 It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -119,7 +119,7 @@ public class BudgetAppServiceTests
 
         // Assert
         _eventPublisherMock.Verify(x => x.PublishAsync(It.IsAny<WorkOrderStatusChangedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
-        _emailServiceMock.Verify(x => x.SendCustomerResponse(It.IsAny<UserResponse>(), It.IsAny<WorkOrder>(), It.IsAny<Budget>(), _message, It.IsAny<CancellationToken>()), Times.Never);
+        _emailServiceMock.Verify(x => x.SendApprovedBudget(It.IsAny<UserResponse>(), It.IsAny<WorkOrder>(), It.IsAny<Budget>(), _message, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod("UpdateBudget should set status to Expired when rejected and past expiration date")]

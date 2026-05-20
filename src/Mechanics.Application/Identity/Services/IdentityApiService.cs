@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 
 namespace Mechanics.Application.Identity.Services;
 
-public abstract class IdentityApiService(HttpClient client) : IIdentityApiService
+public class IdentityApiService(HttpClient client) : IIdentityApiService
 {
     public async Task<UserResponse?> GetUserById(Guid id, CancellationToken cancellationToken)
     {

@@ -17,14 +17,14 @@ public static class BudgetEmailTemplates
             : $"Orçamento rejeitado - Veículo {workOrder.VehicleLicensePlate} - FIAP Mechanics",
         Body = $"""
                 <p>Olá, <b>{mechanic.FullName}</b>,</p>
-                <p>O orçamento para o veículo <b>{workOrder.VehicleLicensePlate}</b> ({workOrder.Id}) foi {(response.Approved ? "aprovado" : "rejeitado")} pelo cliente.</p>
+                <p>O orçamento para o veículo <b>{workOrder.VehicleLicensePlate}</b> ({workOrder.Id}) foi aprovado pelo cliente.</p>
 
                 <ul>
                     <li><b>Valor estimado</b>: {budget.Total:C}</li>
-                    <li>{(response.Notes is not null ? $"<b>Comentário do cliente</b>: {response.Notes}" : "O cliente não deixou nenhum comentário.")}</li>
+                    <li>{(!string.IsNullOrEmpty(response.Notes) ? $"<b>Comentário do cliente</b>: {response.Notes}" : "O cliente não deixou nenhum comentário.")}</li>
                 </ul>
 
-                <p>{(response.Approved ? "Por favor, inicie a execução quando apropriado." : "Por favor, revise o orçamento e proceda com ajustes necessários.")}</p>
+                <p>Por favor, inicie a execução assim que possível.</p>
 
                 <p>Obrigado,<br/>FIAP Mechanics</p>
                 """,
@@ -39,6 +39,22 @@ public static class BudgetEmailTemplates
                 <p>O orçamento para o veículo <b>{wo.VehicleLicensePlate}</b> ({wo.Id}) expirou.</p>
 
                 <p>O cliente será notificado para que um novo orçamento seja realizado.</p>
+
+                <p>Obrigado,<br/>FIAP Mechanics</p>
+                """,
+    };
+
+    public static EmailMessage RejectedBudget(UserResponse mechanic, WorkOrder wo, string? notes) => new()
+    {
+        Recipient = mechanic.Email,
+        Subject = $"Orçamento rejeitado - Veículo {wo.VehicleLicensePlate} - FIAP Mechanics",
+        Body = $"""
+                <p>Olá, <b>{mechanic.FullName}</b>,</p>
+                <p>O orçamento para o veículo <b>{wo.VehicleLicensePlate}</b> foi rejeitado pelo cliente.</p>
+
+                <p>{(!string.IsNullOrEmpty(notes) ? $"<b>Comentário do cliente</b>: {notes}" : "O cliente não deixou nenhum comentário.")}</p>
+
+                <p>Por favor, revise o orçamento e envie uma nova proposta.</p>
 
                 <p>Obrigado,<br/>FIAP Mechanics</p>
                 """,

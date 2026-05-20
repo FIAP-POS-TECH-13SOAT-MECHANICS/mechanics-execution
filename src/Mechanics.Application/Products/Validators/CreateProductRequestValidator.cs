@@ -3,7 +3,7 @@ using Mechanics.Application.Products.Requests;
 
 namespace Mechanics.Application.Products.Validators;
 
-public abstract class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
+public class CreateProductRequestValidator : AbstractValidator<CreateProductRequest>
 {
     public CreateProductRequestValidator()
     {

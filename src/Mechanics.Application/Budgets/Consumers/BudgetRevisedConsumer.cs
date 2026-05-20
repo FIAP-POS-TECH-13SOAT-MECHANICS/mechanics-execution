@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Mechanics.Application.Budgets.Consumers;
 
-public abstract class BudgetRevisedConsumer(ILogger<BudgetRevisedConsumer> logger, BudgetAppService service) : IEventConsumer<BudgetRevisedEvent>
+public class BudgetRevisedConsumer(ILogger<BudgetRevisedConsumer> logger, BudgetAppService service) : IEventConsumer<BudgetRevisedEvent>
 {
     public async Task ConsumeAsync(BudgetRevisedEvent message, CancellationToken cancellationToken = default)
     {

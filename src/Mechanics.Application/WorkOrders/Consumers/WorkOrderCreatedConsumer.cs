@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Mechanics.Application.WorkOrders.Consumers;
 
-public abstract class WorkOrderCreatedConsumer(ILogger<WorkOrderCreatedConsumer> logger, WorkOrderAppService service) : IEventConsumer<WorkOrderCreatedEvent>
+public class WorkOrderCreatedConsumer(ILogger<WorkOrderCreatedConsumer> logger, WorkOrderAppService service) : IEventConsumer<WorkOrderCreatedEvent>
 {
     public async Task ConsumeAsync(WorkOrderCreatedEvent message, CancellationToken cancellationToken = default)
     {

@@ -72,13 +72,12 @@ public class WorkOrder : AbstractEntity, IValidatable
 
     public void Validate(ValidationBuilder builder)
     {
-        if (Products is null)
-            return;
-
         if (Status == WorkOrderStatus.UnderDiagnosis)
             builder.AddValidation(AssignedToUserId.HasValue, nameof(AssignedToUserId),
                 "The work order must be assigned before status change.");
 
+        if (Products is null)
+            return;
         foreach (var workOrderProduct in Products)
             builder.AddValidation(workOrderProduct.Validate, nameof(Products));
     }

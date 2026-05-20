@@ -10,7 +10,7 @@ namespace Mechanics.Application.Notification.Services;
 
 public class EmailService(ILogger<EmailService> logger, IEmailSenderService senderService) : IEmailService
 {
-    public async Task SendCustomerResponse(UserResponse mechanic, WorkOrder workOrder, Budget budget,
+    public async Task SendApprovedBudget(UserResponse mechanic, WorkOrder workOrder, Budget budget,
         BudgetRevisedEvent response, CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Sending mechanic budget decision to '{EmailAddress}'", mechanic.Email);
@@ -29,6 +29,16 @@ public class EmailService(ILogger<EmailService> logger, IEmailSenderService send
         await senderService.SendAsync(message, cancellationToken);
 
         logger.LogInformation("Expired budget notification sent to '{EmailAddress}'", mechanic.Email);
+    }
+
+    public async Task SendRejectedBudget(UserResponse mechanic, WorkOrder wo, string? notes, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Sending rejected budget notification to '{EmailAddress}'", mechanic.Email);
+
+        var message = BudgetEmailTemplates.RejectedBudget(mechanic, wo, notes);
+        await senderService.SendAsync(message, cancellationToken);
+
+        logger.LogInformation("Rejected budget notification sent to '{EmailAddress}'", mechanic.Email);
     }
 
     public async Task SendAssignmentEmail(WorkOrder wo, UserResponse assignedUser, string? comment, CancellationToken cancellationToken = default)
