@@ -1,6 +1,7 @@
 # Execution
 
 Gestão da execução das ordens de serviço.
+[![Quality Gate Status](http://34.231.107.126/api/project_badges/measure?project=fiap-mechanics-execution&metric=alert_status&token=sqb_baee16a082956e23d076181e186a1e1112786d0a)](http://34.231.107.126/dashboard?id=fiap-mechanics-execution)
 
 ## Definição do ambiente
 
@@ -132,3 +133,22 @@ Ao completar o PR, os testes são novamente executados e é feito o deploy no am
 | `main`    | Production  |
 | `release` | Staging     |
 | `develop` | Development |
+
+
+### SonarQube no CI
+
+Este repositório usa workflow reutilizável do `mechanics-infra` para testes e análise SonarQube.
+
+Configurações necessárias em `Settings > Secrets and variables > Actions`:
+
+- Secret `SONAR_HOST_URL`
+- Secret `SONAR_TOKEN`
+- Variable `SONAR_PROJECT_KEY` (valor: `fiap-mechanics-execution`)
+
+A análise é habilitada em:
+
+- `pull_request` com destino em `main`;
+- `workflow_dispatch` quando executado na branch `main`.
+
+O SonarQube faz o coverage da camada de domínio e aplicação. Para isso, o workflow executa os testes com cobertura e publica os resultados usando o SonarScanner.
+
