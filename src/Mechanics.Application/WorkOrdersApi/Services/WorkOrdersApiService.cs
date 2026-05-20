@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 
 namespace Mechanics.Application.WorkOrdersApi.Services;
 
-public abstract class WorkOrdersApiService(HttpClient client) : IWorkOrdersApiService
+public class WorkOrdersApiService(HttpClient client) : IWorkOrdersApiService
 {
     public async Task<VehicleResponse?> GetVehicleByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
