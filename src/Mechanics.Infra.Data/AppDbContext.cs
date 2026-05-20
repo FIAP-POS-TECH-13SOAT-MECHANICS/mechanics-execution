@@ -1,4 +1,5 @@
 using Mechanics.Domain.Base;
+using Mechanics.Domain.Budgets;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
@@ -15,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ServiceCatalog> ServiceCatalog { get; set; }
     public DbSet<WorkOrder> WorkOrders { get; set; }
     public DbSet<WorkOrderHistory> WorkOrderHistories { get; set; }
+    public DbSet<Budget> Budgets { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

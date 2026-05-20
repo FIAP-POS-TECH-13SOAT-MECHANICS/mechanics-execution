@@ -39,6 +39,16 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.app.name }}-database
                   key: connectionString
+            - name: EmailSenderOptions__UserName
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.name }}-email
+                  key: userName
+            - name: EmailSenderOptions__Password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.name }}-email
+                  key: password
             - name: AwsCredentials__AccessKey
               valueFrom:
                 secretKeyRef:

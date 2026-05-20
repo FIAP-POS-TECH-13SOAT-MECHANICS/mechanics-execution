@@ -20,6 +20,7 @@ public class IdentityApiServiceMock : IIdentityApiService
         {
             Id = id,
             FullName = "Mock User",
+            Email = "mock.user@example.com",
             CpfNumber = "12345678901",
             Role = new RoleResponse
             {

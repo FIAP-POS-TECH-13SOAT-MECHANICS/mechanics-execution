@@ -23,6 +23,89 @@ namespace Mechanics.Infra.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Mechanics.Domain.Budgets.Budget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreationDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("CustomerNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkOrderId");
+
+                    b.ToTable("Budgets", "Mechanics");
+                });
+
+            modelBuilder.Entity("Mechanics.Domain.Budgets.BudgetItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("BudgetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreationDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("NameSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ServiceCatalogId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitPriceSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BudgetId");
+
+                    b.ToTable("BudgetItem", "Mechanics");
+                });
+
             modelBuilder.Entity("Mechanics.Domain.Products.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -158,6 +241,10 @@ namespace Mechanics.Infra.Data.Migrations
                     b.Property<Guid>("VehicleId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("VehicleLicensePlate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedToUserId");
@@ -234,6 +321,28 @@ namespace Mechanics.Infra.Data.Migrations
                     b.ToTable("ServiceCatalogWorkOrder", "Mechanics");
                 });
 
+            modelBuilder.Entity("Mechanics.Domain.Budgets.Budget", b =>
+                {
+                    b.HasOne("Mechanics.Domain.WorkOrders.WorkOrder", "WorkOrder")
+                        .WithMany("Budgets")
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkOrder");
+                });
+
+            modelBuilder.Entity("Mechanics.Domain.Budgets.BudgetItem", b =>
+                {
+                    b.HasOne("Mechanics.Domain.Budgets.Budget", "Budget")
+                        .WithMany("Items")
+                        .HasForeignKey("BudgetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Budget");
+                });
+
             modelBuilder.Entity("Mechanics.Domain.WorkOrders.WorkOrderHistory", b =>
                 {
                     b.HasOne("Mechanics.Domain.WorkOrders.WorkOrder", "WorkOrder")
@@ -279,6 +388,11 @@ namespace Mechanics.Infra.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Mechanics.Domain.Budgets.Budget", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("Mechanics.Domain.Products.Product", b =>
                 {
                     b.Navigation("WorkOrders");
@@ -286,6 +400,8 @@ namespace Mechanics.Infra.Data.Migrations
 
             modelBuilder.Entity("Mechanics.Domain.WorkOrders.WorkOrder", b =>
                 {
+                    b.Navigation("Budgets");
+
                     b.Navigation("Products");
                 });
 #pragma warning restore 612, 618

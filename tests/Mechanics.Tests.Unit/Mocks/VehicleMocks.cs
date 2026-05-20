@@ -1,4 +1,4 @@
-﻿using Mechanics.Application.Vehicles.Responses;
+﻿using Mechanics.Application.WorkOrdersApi.Responses;
 
 namespace Mechanics.Tests.Unit.Mocks;
 

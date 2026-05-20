@@ -1,4 +1,5 @@
-﻿using Mechanics.Application.WorkOrders.Services;
+﻿using Mechanics.Application.WorkOrders.Events;
+using Mechanics.Application.WorkOrders.Services;
 using Mechanics.Infra.Messaging.Consumers;
 using Microsoft.Extensions.Logging;
 

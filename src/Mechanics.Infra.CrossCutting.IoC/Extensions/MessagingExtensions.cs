@@ -1,4 +1,7 @@
+using Mechanics.Application.Budgets.Consumers;
+using Mechanics.Application.Budgets.Events;
 using Mechanics.Application.WorkOrders.Consumers;
+using Mechanics.Application.WorkOrders.Events;
 using Mechanics.Infra.Messaging.Extensions;
 using Mechanics.Infra.Messaging.Options;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +22,7 @@ public static class MessagingExtensions
                 return;
 
             builder.AddConsumer<WorkOrderCreatedConsumer, WorkOrderCreatedEvent>();
+            builder.AddConsumer<BudgetRevisedConsumer, BudgetRevisedEvent>();
         });
 
         return services;

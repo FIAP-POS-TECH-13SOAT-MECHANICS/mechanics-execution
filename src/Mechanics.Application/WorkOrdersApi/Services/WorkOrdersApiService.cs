@@ -1,8 +1,8 @@
-﻿using Mechanics.Application.Vehicles.Responses;
+﻿using Mechanics.Application.WorkOrdersApi.Responses;
 using System.Net;
 using System.Net.Http.Json;
 
-namespace Mechanics.Application.Vehicles.Services;
+namespace Mechanics.Application.WorkOrdersApi.Services;
 
 public class WorkOrdersApiService(HttpClient client) : IWorkOrdersApiService
 {

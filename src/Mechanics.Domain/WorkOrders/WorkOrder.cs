@@ -1,5 +1,6 @@
 using Mechanics.Domain.Base;
 using Mechanics.Domain.Base.Validation;
+using Mechanics.Domain.Budgets;
 using Mechanics.Domain.ServicesCatalog;
 
 namespace Mechanics.Domain.WorkOrders;
@@ -12,6 +13,7 @@ public class WorkOrder : AbstractEntity, IValidatable
     public required Guid CustomerId { get; init; }
 
     public required Guid VehicleId { get; init; }
+    public required string VehicleLicensePlate { get; init; }
 
     public WorkOrderStatus Status { get; set; }
     public DateTime LastUpdate { get; set; }
@@ -66,11 +68,16 @@ public class WorkOrder : AbstractEntity, IValidatable
     /// </summary>
     public Guid? AssignedToUserId { get; set; }
 
+    public IEnumerable<Budget>? Budgets { get; set; }
+
     public void Validate(ValidationBuilder builder)
     {
+        if (Status == WorkOrderStatus.UnderDiagnosis)
+            builder.AddValidation(AssignedToUserId.HasValue, nameof(AssignedToUserId),
+                "The work order must be assigned before status change.");
+
         if (Products is null)
             return;
-
         foreach (var workOrderProduct in Products)
             builder.AddValidation(workOrderProduct.Validate, nameof(Products));
     }
