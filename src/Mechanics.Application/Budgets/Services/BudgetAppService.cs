@@ -136,7 +136,7 @@ public class BudgetAppService(
             .FirstAsync(cancellationToken: cancellationToken);
 
         foreach (var products in wo.Products!)
-            products.Product!.Quantity -= products.Quantity;
+            products.Product!.Quantity += products.Quantity;
     }
 
     private void AddWorkOrderHistory(Guid workOrderId, string action, string? details)
