@@ -1,5 +1,5 @@
-﻿using Mechanics.Application.Vehicles.Responses;
-using Mechanics.Application.Vehicles.Services;
+﻿using Mechanics.Application.WorkOrdersApi.Responses;
+using Mechanics.Application.WorkOrdersApi.Services;
 
 namespace Mechanics.Tests.Unit.Mocks;
 

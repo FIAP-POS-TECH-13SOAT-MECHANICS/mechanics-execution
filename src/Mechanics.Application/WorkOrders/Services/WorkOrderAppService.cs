@@ -1,32 +1,38 @@
 using AutoMapper;
+using Mechanics.Application.Budgets.Events;
 using Mechanics.Application.Identity.Services;
+using Mechanics.Application.Notification.Services;
 using Mechanics.Application.Observability;
 using Mechanics.Application.Utils;
 using Mechanics.Application.Utils.CommonResponses;
 using Mechanics.Application.Utils.PagedList;
-using Mechanics.Application.Vehicles.Services;
-using Mechanics.Application.WorkOrders.Consumers;
+using Mechanics.Application.WorkOrders.Events;
 using Mechanics.Application.WorkOrders.Requests;
 using Mechanics.Application.WorkOrders.Responses;
+using Mechanics.Application.WorkOrdersApi.Services;
 using Mechanics.Domain.Base.Exceptions;
+using Mechanics.Domain.Budgets;
 using Mechanics.Domain.Products;
 using Mechanics.Domain.ServicesCatalog;
 using Mechanics.Domain.WorkOrders;
 using Mechanics.Infra.Data;
+using Mechanics.Infra.Messaging.Publishers;
 using Mechanics.Infra.Security.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using BudgetItem = Mechanics.Domain.Budgets.BudgetItem;
 
 namespace Mechanics.Application.WorkOrders.Services;
 
 public class WorkOrderAppService(
+    ILogger<WorkOrderAppService> logger,
     AppDbContext db,
     IMapper mapper,
-    ILogger<WorkOrderAppService> logger,
+    IEmailService emailService,
     IIdentityApiService identityApiService,
-    IWorkOrdersApiService workOrdersApiService)
-    : IAppService
+    IWorkOrdersApiService workOrdersApiService,
+    IEventPublisher eventPublisher) : IAppService
 {
     /// <summary>
     ///     Cria uma nova WorkOrder.
@@ -44,6 +50,7 @@ public class WorkOrderAppService(
                 Id = request.WorkOrderId,
                 CustomerId = vehicle.OwnerId,
                 VehicleId = request.VehicleId,
+                VehicleLicensePlate = vehicle.LicensePlate,
                 Status = WorkOrderStatus.Received,
                 CreationDate = now,
                 LastUpdate = now,
@@ -91,13 +98,15 @@ public class WorkOrderAppService(
         var hist = new WorkOrderHistory
         {
             WorkOrderId = wo.Id,
-            Action = "Assigned",
+            Action = WorkOrderHistoryActions.Assigned,
             Details = comment is null ? $"Assigned to {assignedToUserId}" : $"Assigned to {assignedToUserId}. Comment: {comment}",
             PerformedByUserId = performedByUserId,
         };
         await db.WorkOrderHistories.AddAsync(hist, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+
+        await emailService.SendAssignmentEmail(wo, assignedUser, comment, cancellationToken);
 
         if (wo.Status == WorkOrderStatus.Received)
         {
@@ -149,11 +158,84 @@ public class WorkOrderAppService(
     /// </summary>
     public async Task RequestApproval(Guid workOrderId, Guid performedByUserId, CancellationToken cancellationToken = default)
     {
-        var woExists = await db.WorkOrders.AnyAsync(w => w.Id == workOrderId, cancellationToken);
-        EntityNotFoundException.ThrowIfNotFound<WorkOrder>(woExists, workOrderId);
+        var wo = await db.WorkOrders
+            .Include(w => w.Products)
+            .Include(w => w.ServiceCatalog)
+            .FirstOrDefaultAsync(w => w.Id == workOrderId, cancellationToken);
+        EntityNotFoundException.ThrowIfNull(wo, workOrderId);
 
-        // TODO enviar ordem e todos os produtos para Billing
-        // await budgetService.CreateAndSendBudget(workOrderId, performedByUserId, cancellationToken);
+        var budget = new Budget
+        {
+            WorkOrderId = wo.Id,
+            Status = BudgetStatus.Sent,
+            Items = [],
+        };
+        db.Budgets.Add(budget);
+
+        // Adiciona produtos
+        if (wo.Products?.Count > 0)
+        {
+            var productIds = wo.Products.Select(p => p.ProductId).ToList();
+            var products = await db.Products
+                .Where(p => productIds.Contains(p.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var workOrderProduct in wo.Products)
+            {
+                var product = products.FirstOrDefault(p => p.Id == workOrderProduct.ProductId);
+                if (product == null)
+                    continue;
+
+                var subtotal = product.UnitPrice * workOrderProduct.Quantity;
+                budget.Total += subtotal;
+                budget.Items.Add(new BudgetItem
+                {
+                    Id = product.Id,
+                    NameSnapshot = product.Name,
+                    UnitPriceSnapshot = product.UnitPrice,
+                    Quantity = workOrderProduct.Quantity,
+                    Subtotal = subtotal,
+                });
+            }
+        }
+
+        // Adiciona serviços
+        if (wo.ServiceCatalog?.Count > 0)
+        {
+            foreach (var service in wo.ServiceCatalog)
+            {
+                var subtotal = service.BasePrice;
+                budget.Total += subtotal;
+                budget.Items.Add(new BudgetItem
+                {
+                    Id = service.Id,
+                    NameSnapshot = service.Name,
+                    UnitPriceSnapshot = service.BasePrice,
+                    Quantity = 1,
+                    Subtotal = subtotal,
+                });
+            }
+        }
+
+        var budgetEvent = new BudgetCreatedEvent
+        {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTimeOffset.Now,
+            WorkOrderId = wo.Id,
+            CustomerId = wo.CustomerId,
+            VehicleId = wo.VehicleId,
+            Total = budget.Total,
+            ExpiresAt = budget.ExpiresAt,
+            Items = budget.Items.Select(item=>new Budgets.Events.BudgetItem
+            {
+                Id = item.Id,
+                Name = item.NameSnapshot,
+                UnitPrice = item.UnitPriceSnapshot,
+                Quantity = item.Quantity,
+                Subtotal = item.Subtotal,
+            }),
+        };
+        await eventPublisher.PublishAsync(budgetEvent, cancellationToken);
     }
 
     /// <summary>
@@ -163,7 +245,10 @@ public class WorkOrderAppService(
     public async Task ChangeStatus(Guid workOrderId, WorkOrderStatus newStatus, Guid performedByUserId,
         string? comment = null, CancellationToken cancellationToken = default)
     {
-        var wo = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == workOrderId, cancellationToken);
+        var wo = await db.WorkOrders
+            .Where(w => w.Id == workOrderId)
+            .Include(w => w.Budgets)
+            .FirstOrDefaultAsync(cancellationToken);
         EntityNotFoundException.ThrowIfNull(wo, workOrderId);
 
         var previous = wo.Status;
@@ -176,11 +261,14 @@ public class WorkOrderAppService(
 
         if (newStatus == WorkOrderStatus.InProgress)
         {
-            // TODO consultar ordem para confirmar que orçamento está aprovado
-            /*var approved = wo.ApprovedAt != null;
+            var budget = wo.Budgets!
+                .OrderByDescending(b => b.CreationDate)
+                .FirstOrDefault(b => b.WorkOrderId == workOrderId);
+
+            var approved = budget?.Status == BudgetStatus.Approved || wo.ApprovedAt != null;
 
             if (!approved)
-                throw new BusinessException("Order must be approved before starting.");*/
+                throw new BusinessException("Order must be approved before starting.");
         }
 
         var timeInPreviousStatus = DateTime.Now - wo.LastUpdate;
@@ -197,7 +285,7 @@ public class WorkOrderAppService(
         var hist = new WorkOrderHistory
         {
             WorkOrderId = wo.Id,
-            Action = "StatusChanged",
+            Action = WorkOrderHistoryActions.StatusChanged,
             Details = comment is null ? $"From {previous} to {newStatus}" : $"From {previous} to {newStatus}. Comment: {comment}",
             PerformedByUserId = performedByUserId,
         };
@@ -232,20 +320,15 @@ public class WorkOrderAppService(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        // notifica cliente sobre a mudança de status
-        var customer = await workOrdersApiService.GetCustomerByIdAsync(wo.CustomerId, cancellationToken);
-        if (customer != null)
+        // notifica interessados sobre a mudança de status
+        await eventPublisher.PublishAsync(new WorkOrderStatusChangedEvent
         {
-            try
-            {
-                // TODO publicar evento de alteração de status da OS
-            }
-            catch (Exception ex)
-            {
-                AppMetrics.EmailsFailed.Add(1, new TagList { { "template", "status_changed" } });
-                logger.LogWarning(ex, "Failed to send status changed email for WorkOrder {WorkOrderId}", wo.Id);
-            }
-        }
+            WorkOrderId = wo.Id,
+            LastStatusChangeBy = performedByUserId,
+            OldStatus = previous.ToString(),
+            NewStatus = newStatus.ToString(),
+            LastUpdate = DateTimeOffset.Now,
+        }, cancellationToken);
     }
 
     /// <summary>

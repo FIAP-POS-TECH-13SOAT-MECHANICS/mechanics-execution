@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 
 namespace Mechanics.Api;
 
-public class Program
+public abstract class Program
 {
     [ExcludeFromCodeCoverage]
     protected Program()
@@ -40,7 +40,8 @@ public class Program
             .AddAppServices(builder.Configuration)
             .AddRequestValidators()
             .AddMessaging(builder.Configuration)
-            .AddCrossServiceClients(builder.Configuration);
+            .AddCrossServiceClients(builder.Configuration)
+            .AddEmailSender(builder.Configuration);
 
         builder.Services.AddHealthChecks()
             .AddDbHealthCheck();

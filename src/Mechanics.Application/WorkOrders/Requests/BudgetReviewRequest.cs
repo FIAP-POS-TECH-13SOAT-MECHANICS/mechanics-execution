@@ -3,7 +3,7 @@ namespace Mechanics.Application.WorkOrders.Requests;
 /// <summary>
 ///     Requisição para aprovação de budget pelo cliente.
 /// </summary>
-public class BudgetReviewRequest
+public abstract class BudgetReviewRequest
 {
     public required string AccessKey { get; init; }
 

@@ -58,8 +58,8 @@ namespace Mechanics.Infra.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWID()"),
                     CustomerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AccessKey = table.Column<string>(type: "nchar(8)", fixedLength: true, maxLength: 8, nullable: false),
                     VehicleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    VehicleLicensePlate = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     LastUpdate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSDATETIME()"),
                     ReportedProblem = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
@@ -75,6 +75,32 @@ namespace Mechanics.Infra.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WorkOrders", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Budgets",
+                schema: "Mechanics",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWID()"),
+                    WorkOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    Total = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    ApprovedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CustomerNotes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    RejectedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreationDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSDATETIME()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Budgets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Budgets_WorkOrders_WorkOrderId",
+                        column: x => x.WorkOrderId,
+                        principalSchema: "Mechanics",
+                        principalTable: "WorkOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -156,6 +182,45 @@ namespace Mechanics.Infra.Data.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "BudgetItem",
+                schema: "Mechanics",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWID()"),
+                    BudgetId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ServiceCatalogId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    NameSnapshot = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    UnitPriceSnapshot = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Quantity = table.Column<int>(type: "int", nullable: false),
+                    Subtotal = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    CreationDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSDATETIME()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BudgetItem", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BudgetItem_Budgets_BudgetId",
+                        column: x => x.BudgetId,
+                        principalSchema: "Mechanics",
+                        principalTable: "Budgets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BudgetItem_BudgetId",
+                schema: "Mechanics",
+                table: "BudgetItem",
+                column: "BudgetId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Budgets_WorkOrderId",
+                schema: "Mechanics",
+                table: "Budgets",
+                column: "WorkOrderId");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Products_Name",
                 schema: "Mechanics",
@@ -195,16 +260,19 @@ namespace Mechanics.Infra.Data.Migrations
                 column: "AssignedToUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_WorkOrders_CustomerId_AccessKey",
+                name: "IX_WorkOrders_CustomerId",
                 schema: "Mechanics",
                 table: "WorkOrders",
-                columns: new[] { "CustomerId", "AccessKey" },
-                unique: true);
+                column: "CustomerId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "BudgetItem",
+                schema: "Mechanics");
+
             migrationBuilder.DropTable(
                 name: "ServiceCatalogWorkOrder",
                 schema: "Mechanics");
@@ -215,6 +283,10 @@ namespace Mechanics.Infra.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "WorkOrderProduct",
+                schema: "Mechanics");
+
+            migrationBuilder.DropTable(
+                name: "Budgets",
                 schema: "Mechanics");
 
             migrationBuilder.DropTable(

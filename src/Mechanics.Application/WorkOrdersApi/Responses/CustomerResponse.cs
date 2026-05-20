@@ -1,4 +1,4 @@
-﻿namespace Mechanics.Application.Vehicles.Responses;
+﻿namespace Mechanics.Application.WorkOrdersApi.Responses;
 
 public class CustomerResponse
 {
